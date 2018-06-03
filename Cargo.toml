@@ -1,0 +1,16 @@
+[package]
+name = "spuri_io"
+version = "0.1.0"
+authors = ["Sameer <spuri4096@gmail.com>"]
+
+[dependencies]
+actix = "*"
+actix-web = { version="^0.6", features=["alpn"]}
+askama = "0.5"
+openssl = "*"
+env_logger = "*"
+log = "*"
+base64 = "0.9.2"
+
+[build-dependencies]
+askama = "0.5"
