@@ -75,7 +75,7 @@ fn make_base() -> Base {
         Err(_) => "".to_string(),
     };
     info!("It is {}", hash);
-    return Base {
+    Base {
         nav_items: vec![
             NavItem::new("/code_art", "Code Art"),
             NavItem::new("/blog", "Blog"),
@@ -83,7 +83,7 @@ fn make_base() -> Base {
             NavItem::new("/about", "About"),
         ],
         css_file_hash: format!("sha512-{}", hash),
-    };
+    }
 }
 
 #[derive(Template)]
@@ -135,15 +135,37 @@ struct BlogPage<'a> {
     last_modified: String,
 }
 
-fn blog_page(req: HttpRequest<Base>) -> impl Responder {
-    req.
+fn blog_page(data: (State<BlogIndex>, Path<String>)) -> impl Responder {
+    info!("Hit");
+    let path_page_title = data.1.into_inner();
+    for page in &data.0.index {
+        if page.title == path_page_title {
+            return HttpResponse::Ok()
+                .content_type("text/html")
+                .body(page.render().unwrap());
+        }
+    }
+    info!("fail");
+    HttpResponse::NotFound().content_type("text/html").body(
+        Error {
+            _parent: &data.0._parent.clone(),
+            title: "Blog Page Not Found".to_string(),
+            msg: "The blog page you requested was not found".to_string(),
+        }.render()
+            .unwrap(),
+    )
+}
+
+fn blog_index(data: State<BlogIndex>) -> impl Responder {
+    return HttpResponse::Ok()
+        .content_type("text/html")
+        .body(data.render().unwrap());
 }
 
 #[derive(Template)]
 #[template(path = "blog_index.html")]
 struct BlogIndex<'a> {
-    _parent: &'a Base,
-    title: String,
+    _parent: Base,
     index: Vec<BlogPage<'a>>,
 }
 
@@ -177,10 +199,20 @@ fn main() {
     let key_file_path = env::var("KEY_FILE").unwrap_or(String::new());
     let base = make_base();
     let serv = server::new(move || {
-        App::with_state(base.clone())
-            .handler("/static", fs::StaticFiles::new("./static"))
-            .resource("/", |r| r.f(index))
-            .resource("/about", |r| r.f(about))
+        vec![
+            App::with_state(BlogIndex {
+                _parent: base.clone(),
+                index: vec![],
+            }).prefix("/blog")
+                .resource("/", |r| r.with(blog_index))
+                .resource("/{page}", |r| r.with(blog_page))
+                .boxed(),
+            App::with_state(base.clone())
+                .handler("/static", fs::StaticFiles::new("./static"))
+                .resource("/", |r| r.f(index))
+                .resource("/about", |r| r.f(about))
+                .boxed(),
+        ]
     });
 
     let trying_to_be_secure: bool =
