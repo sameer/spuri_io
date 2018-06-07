@@ -1,2 +1,6 @@
 /target
 **/*.rs.bk
+src/css_file_hash
+*.pem
+Cargo.lock
+static/code_art/*

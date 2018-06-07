@@ -12,90 +12,75 @@ use actix_web::*;
 use askama::Template;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::env;
-use std::fs::File;
-use std::io::prelude::*;
 
-struct NavItem {
-    link: String,
-    name: String,
+struct NavItem<'a> {
+    link: &'a str,
+    name: &'a str,
     new_page: bool,
 }
 
-impl NavItem {
-    fn new(link: &str, name: &str) -> NavItem {
+impl<'a> Clone for NavItem<'a> {
+    fn clone(&self) -> NavItem<'a> {
         NavItem {
-            link: link.to_string(),
-            name: name.to_string(),
-            new_page: false,
-        }
-    }
-}
-
-impl Clone for NavItem {
-    fn clone(&self) -> NavItem {
-        NavItem {
-            link: self.link.clone(),
-            name: self.name.clone(),
-            new_page: self.new_page.clone(),
+            link: self.link,
+            name: self.name,
+            new_page: self.new_page,
         }
     }
 }
 
 #[derive(Template)]
 #[template(path = "base.html")]
-struct Base {
-    nav_items: Vec<NavItem>,
-    css_file_hash: String,
+struct Base<'a> {
+    nav_items: [NavItem<'a>; 4],
+    css_file_hash: &'a str,
 }
 
-impl Clone for Base {
-    fn clone(&self) -> Base {
+const BASE: Base = Base {
+    css_file_hash: include_str!("css_file_hash"),
+    nav_items: [
+        NavItem {
+            link: "/code_art",
+            name: "Code Art",
+            new_page: false,
+        },
+        NavItem {
+            link: "/blog",
+            name: "Blog",
+            new_page: false,
+        },
+        NavItem {
+            link: "https://github.com/sameer",
+            name: "GitHub",
+            new_page: false,
+        },
+        NavItem {
+            link: "/about",
+            name: "About",
+            new_page: false,
+        },
+    ],
+};
+
+impl<'a> Clone for Base<'a> {
+    fn clone(&self) -> Base<'a> {
         Base {
             nav_items: self.nav_items.clone(),
-            css_file_hash: self.css_file_hash.clone(),
+            css_file_hash: self.css_file_hash,
         }
-    }
-}
-
-fn make_base() -> Base {
-    info!("Getting style.css hash");
-    let hash = match File::open("static/style.css") {
-        Ok(mut f) => {
-            let mut hasher = openssl::sha::Sha512::new();
-            let mut buf = vec![];
-            match f.read_to_end(&mut buf) {
-                Ok(_) => {
-                    hasher.update(&buf);
-                    let hash: &[u8] = &hasher.finish();
-                    base64::encode(hash)
-                }
-                Err(_) => "".to_string(),
-            }
-        }
-        Err(_) => "".to_string(),
-    };
-    info!("It is {}", hash);
-    Base {
-        nav_items: vec![
-            NavItem::new("/code_art", "Code Art"),
-            NavItem::new("/blog", "Blog"),
-            NavItem::new("https://github.com/sameer", "GitHub"),
-            NavItem::new("/about", "About"),
-        ],
-        css_file_hash: format!("sha512-{}", hash),
     }
 }
 
 #[derive(Template)]
 #[template(path = "about.html")]
 struct About<'a> {
-    _parent: &'a Base,
+    _parent: Base<'a>,
 }
 
 fn about(req: HttpRequest<Base>) -> impl Responder {
     HttpResponse::Ok().body(
         About {
-            _parent: req.state(),
+            _parent: req.state().clone(),
         }.render()
             .unwrap(),
     )
@@ -104,13 +89,13 @@ fn about(req: HttpRequest<Base>) -> impl Responder {
 #[derive(Template)]
 #[template(path = "index.html")]
 struct Index<'a> {
-    _parent: &'a Base,
+    _parent: Base<'a>,
 }
 
 fn index(req: HttpRequest<Base>) -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(
         Index {
-            _parent: req.state(),
+            _parent: req.state().clone(),
         }.render()
             .unwrap(),
     )
@@ -119,7 +104,7 @@ fn index(req: HttpRequest<Base>) -> impl Responder {
 #[derive(Template)]
 #[template(path = "error.html")]
 struct Error<'a> {
-    _parent: &'a Base,
+    _parent: Base<'a>,
     title: String,
     msg: String,
 }
@@ -127,7 +112,7 @@ struct Error<'a> {
 #[derive(Template)]
 #[template(path = "blog_page.html")]
 struct BlogPage<'a> {
-    _parent: &'a Base,
+    _parent: Base<'a>,
     title: String,
     checksum: String,
     author: String,
@@ -148,7 +133,7 @@ fn blog_page(data: (State<BlogIndex>, Path<String>)) -> impl Responder {
     info!("fail");
     HttpResponse::NotFound().content_type("text/html").body(
         Error {
-            _parent: &data.0._parent.clone(),
+            _parent: data.0._parent.clone(),
             title: "Blog Page Not Found".to_string(),
             msg: "The blog page you requested was not found".to_string(),
         }.render()
@@ -157,23 +142,29 @@ fn blog_page(data: (State<BlogIndex>, Path<String>)) -> impl Responder {
 }
 
 fn blog_index(data: State<BlogIndex>) -> impl Responder {
-    return HttpResponse::Ok()
+    HttpResponse::Ok()
         .content_type("text/html")
-        .body(data.render().unwrap());
+        .body(data.render().unwrap())
 }
 
 #[derive(Template)]
 #[template(path = "blog_index.html")]
 struct BlogIndex<'a> {
-    _parent: Base,
+    _parent: Base<'a>,
     index: Vec<BlogPage<'a>>,
 }
 
 #[derive(Template)]
-#[template(path = "codeart_gallery.html")]
+#[template(path = "code_art_gallery.html")]
 struct CodeArtGallery<'a> {
-    _parent: &'a Base,
+    _parent: Base<'a>,
     images: Vec<CodeArtImage>,
+}
+
+fn code_art_gallery(state: State<CodeArtGallery>) -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(state.render().unwrap())
 }
 
 struct CodeArtImage {
@@ -197,17 +188,22 @@ fn main() {
         env::var("PROD_BIND_ADDRESS").unwrap_or(DEV_BIND_ADDRESS.to_string());
     let cert_file_path = env::var("CERT_FILE").unwrap_or(String::new());
     let key_file_path = env::var("KEY_FILE").unwrap_or(String::new());
-    let base = make_base();
     let serv = server::new(move || {
         vec![
             App::with_state(BlogIndex {
-                _parent: base.clone(),
+                _parent: BASE.clone(),
                 index: vec![],
             }).prefix("/blog")
                 .resource("/", |r| r.with(blog_index))
                 .resource("/{page}", |r| r.with(blog_page))
                 .boxed(),
-            App::with_state(base.clone())
+            App::with_state(CodeArtGallery {
+                _parent: BASE.clone(),
+                images: vec![],
+            }).prefix("/code_art")
+                .resource("/", |r| r.with(code_art_gallery))
+                .boxed(),
+            App::with_state(BASE.clone())
                 .handler("/static", fs::StaticFiles::new("./static"))
                 .resource("/", |r| r.f(index))
                 .resource("/about", |r| r.f(about))
