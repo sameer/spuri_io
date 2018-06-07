@@ -17,6 +17,7 @@ struct NavItem<'a> {
     link: &'a str,
     name: &'a str,
     new_page: bool,
+    active: bool,
 }
 
 impl<'a> Clone for NavItem<'a> {
@@ -25,6 +26,7 @@ impl<'a> Clone for NavItem<'a> {
             link: self.link,
             name: self.name,
             new_page: self.new_page,
+            active: self.active,
         }
     }
 }
@@ -43,21 +45,25 @@ const BASE: Base = Base {
             link: "/code_art",
             name: "Code Art",
             new_page: false,
+            active: false,
         },
         NavItem {
             link: "/blog",
             name: "Blog",
             new_page: false,
+            active: false,
         },
         NavItem {
             link: "https://github.com/sameer",
             name: "GitHub",
             new_page: false,
+            active: false,
         },
         NavItem {
             link: "/about",
             name: "About",
             new_page: false,
+            active: false,
         },
     ],
 };
@@ -78,6 +84,8 @@ struct About<'a> {
 }
 
 fn about(req: HttpRequest<Base>) -> impl Responder {
+    let mut base = req.state().clone();
+    base.nav_items[3].active = true;
     HttpResponse::Ok().body(
         About {
             _parent: req.state().clone(),
@@ -188,17 +196,26 @@ fn main() {
         env::var("PROD_BIND_ADDRESS").unwrap_or(DEV_BIND_ADDRESS.to_string());
     let cert_file_path = env::var("CERT_FILE").unwrap_or(String::new());
     let key_file_path = env::var("KEY_FILE").unwrap_or(String::new());
+
     let serv = server::new(move || {
+        // TODO: find a way to do this on the fly rather than doing it in
+        // an ugly manner here
+        let mut blog_base = BASE.clone();
+        blog_base.nav_items[1].active = true;
+
+        let mut code_art_base = BASE.clone();
+        code_art_base.nav_items[0].active = true;
+
         vec![
             App::with_state(BlogIndex {
-                _parent: BASE.clone(),
+                _parent: blog_base,
                 index: vec![],
             }).prefix("/blog")
                 .resource("/", |r| r.with(blog_index))
                 .resource("/{page}", |r| r.with(blog_page))
                 .boxed(),
             App::with_state(CodeArtGallery {
-                _parent: BASE.clone(),
+                _parent: code_art_base,
                 images: vec![],
             }).prefix("/code_art")
                 .resource("/", |r| r.with(code_art_gallery))
