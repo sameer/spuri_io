@@ -4,15 +4,15 @@ version = "0.1.0"
 authors = ["Sameer <spuri4096@gmail.com>"]
 
 [dependencies]
-actix = "*"
-actix-web = { version="^0.6", features=["alpn"]}
-askama = "0.5"
-openssl = "*"
-env_logger = "*"
-log = "*"
-base64 = "0.9.2"
+actix = "^0.5.8"
+actix-web = { version="^0.6.12", features=["alpn"]}
+askama = "^0.6.4"
+openssl = "^0.10.10"
+env_logger = "^0.5.10"
+log = "^0.4.2"
+base64 = "^0.9.2"
 
 [build-dependencies]
-askama = "0.5"
-openssl = "*"
-base64 = "0.9.2"
+askama = "^0.6.4"
+openssl = "^0.10.10"
+base64 = "^0.9.2"

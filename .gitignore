@@ -3,4 +3,4 @@
 src/css_file_hash
 *.pem
 Cargo.lock
-static/code_art/*
+files/code_art/*

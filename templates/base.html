@@ -2,9 +2,9 @@
 <html lang="en-US" dir="ltr">
 <head>
 	<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet">
-	<link integrity="{{ css_file_hash }}" rel="stylesheet" href="/static/style.css" type="text/css">
-	<link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico" />
-	<link rel="icon" type="image/png" href="/static/favicon.png" />
+	<link integrity="{{ css_file_hash }}" rel="stylesheet" href="/files/style.css" type="text/css">
+	<link rel="shortcut icon" type="image/x-icon" href="/files/favicon.ico" />
+	<link rel="icon" type="image/png" href="/files/favicon.png" />
 	<title>{% block title %}{% endblock %} | spuri.io</title>
 	<meta charset="UTF-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=Edge">
@@ -22,7 +22,7 @@
     	<div class="container">
     		    <a href="/" class="pagename current">spuri.io</a>
     		{% for i in nav_items %}
-    		    <a href="{{ i.link }}"{% if i.active %}class="active"{% endif %}{% if i.new_page %}target="_blank"{% endif %}>{{i.name}} {% if i.new_page %}&#128279;{% endif %}</a>
+    		    <a href="{{ i.link }}"{% if i.new_page %}target="_blank"{% endif %}>{{i.name}} {% if i.new_page %}&#128279;{% endif %}</a>
     		{% endfor %}
     		    <a href="#" onclick="document.body.style.background='#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6);">&#128161;</a>
     	</div>
