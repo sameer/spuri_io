@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 #[derive(Template)]
 #[template(path = "about.html")]
-struct About<'a> {
-    _parent: Arc<Base<'a>>,
+struct About {
+    _parent: Arc<Base>,
 }
 
 pub fn about(req: HttpRequest<Arc<Base>>) -> impl Responder {
@@ -20,8 +20,8 @@ pub fn about(req: HttpRequest<Arc<Base>>) -> impl Responder {
 
 #[derive(Template)]
 #[template(path = "index.html")]
-struct BaseIndex<'a> {
-    _parent: Arc<Base<'a>>,
+struct BaseIndex {
+    _parent: Arc<Base>,
 }
 
 pub fn index(req: HttpRequest<Arc<Base>>) -> impl Responder {
@@ -35,8 +35,8 @@ pub fn index(req: HttpRequest<Arc<Base>>) -> impl Responder {
 
 #[derive(Template)]
 #[template(path = "error.html")]
-pub struct Error<'a> {
-    pub _parent: Arc<Base<'a>>,
+pub struct Error {
+    pub _parent: Arc<Base>,
     pub title: String,
     pub msg: String,
 }

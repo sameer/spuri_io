@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, State, Path};
+use actix_web::{HttpResponse, Path, Responder, State};
 use askama::Template;
 use base::*;
 use static_pages::Error;
@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 #[derive(Template)]
 #[template(path = "blog_page.html")]
-pub struct BlogPage<'a> {
-    _parent: Arc<Base<'a>>,
+pub struct BlogPage {
+    _parent: Arc<Base>,
     title: String,
     checksum: String,
     author: String,
@@ -44,7 +44,7 @@ pub fn blog_index(data: State<BlogIndex>) -> impl Responder {
 
 #[derive(Template)]
 #[template(path = "blog_index.html")]
-pub struct BlogIndex<'a> {
-    pub _parent: Arc<Base<'a>>,
-    pub index: Vec<BlogPage<'a>>,
+pub struct BlogIndex {
+    pub _parent: Arc<Base>,
+    pub index: Vec<BlogPage>,
 }

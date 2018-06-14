@@ -7,17 +7,17 @@ extern crate openssl;
 extern crate log;
 extern crate base64;
 extern crate env_logger;
+extern crate notify;
 
 use actix_web::{fs, server, App};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::env;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 mod base;
 use base::*;
 
 mod code_art;
-use code_art::*;
 
 mod blog;
 use blog::*;
@@ -70,6 +70,11 @@ fn main() {
         // TODO: find a way to do this on the fly rather than doing it in
         // an ugly manner here
         let base_arc = Arc::new(BASE);
+        let code_art_gallery = Arc::new(RwLock::new(code_art::Gallery {
+            _parent: base_arc.clone(),
+            images: vec![],
+        }));
+        code_art::spawn_gallery_updater(code_art_gallery.clone());
         vec![
             App::with_state(BlogIndex {
                 _parent: base_arc.clone(),
@@ -78,11 +83,9 @@ fn main() {
                 .resource("/", |r| r.with(blog_index))
                 .resource("/{page}", |r| r.with(blog_page))
                 .boxed(),
-            App::with_state(CodeArtGallery {
-                _parent: base_arc.clone(),
-                images: vec![],
-            }).prefix("/code_art")
-                .resource("/", |r| r.with(code_art_gallery))
+            App::with_state(code_art_gallery)
+                .prefix("/code_art")
+                .resource("/", |r| r.with(code_art::gallery))
                 .boxed(),
             App::with_state(base_arc.clone())
                 .handler("/files", fs::StaticFiles::new("./files"))
