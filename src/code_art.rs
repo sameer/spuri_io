@@ -2,8 +2,11 @@ use actix_web::{HttpResponse, Responder, State};
 use askama::Template;
 use base::*;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use std::convert::TryFrom;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::error;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -22,54 +25,96 @@ pub fn gallery(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
         .body(state.read().unwrap().render().unwrap())
 }
 
+const FOLDER_PATH: &str = "./files/code_art";
+
 pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
     thread::spawn(move || {
+        match env::current_dir().and_then(|cwd_path_buf| {
+            let gallery_prefix = cwd_path_buf.join(PathBuf::from(FOLDER_PATH));
+            fs::read_dir(gallery_prefix)
+        }) {
+            Ok(dir_iter) => {
+                let mut state = gallery_state.write().unwrap();
+                let length_before = state.images.len();
+                let path_iter = dir_iter.map(|dir_entry_result| {
+                    dir_entry_result.and_then(|dir_entry| Ok(dir_entry.path()))
+                });
+                path_iter.for_each(|path_result| {
+                    match path_result {
+                        Ok(path) => match Image::try_from(&path) {
+                            Ok(img) => {
+                                debug!("Adding image {}", img.name);
+                                state.images.push(img);
+                            }
+                            Err(err) => warn!("Couldn't derive new image by path: {}", err),
+                        },
+                        Err(err) => {
+                            warn!(
+                                "Encountered error while reading file from directory: {}",
+                                err
+                            );
+                        }
+                    };
+                });
+                let length_after = state.images.len();
+                info!(
+                    "Found {} images and added them",
+                    length_after - length_before
+                );
+            }
+            Err(err) => {
+                warn!(
+                    "Encountered error while reading files from directory: {}",
+                    err
+                );
+            }
+        };
         let (tx, rx) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
         watcher
-            .watch("./files/code_art", RecursiveMode::NonRecursive)
+            .watch(FOLDER_PATH, RecursiveMode::NonRecursive)
             .unwrap();
         loop {
             match rx.recv() {
                 Ok(event) => match event {
-                    DebouncedEvent::Rename(from_path, to_path) => {
+                    DebouncedEvent::Rename(from_path, to_path) => match Image::try_from(&to_path) {
+                        Ok(img_to_add) => {
+                            let mut state = gallery_state.write().unwrap();
+                            state
+                                .images
+                                .iter()
+                                .position(|ref img| from_path.ends_with(PathBuf::from(&img.src)))
+                                .map(|pos: usize| state.images.swap_remove(pos))
+                                .and_then(|old_img| {
+                                    debug!(
+                                        "Handling image move from {} to {}",
+                                        old_img.name, img_to_add.name
+                                    );
+                                    Some(true)
+                                });
+                            state.images.push(img_to_add);
+                        }
+                        Err(err) => warn!("Couldn't derive moved image by path: {}", err),
+                    },
+                    DebouncedEvent::Create(path) => match Image::try_from(&path) {
+                        Ok(img) => {
+                            debug!("Handling new image {}", img.name);
+                            gallery_state.write().unwrap().images.push(img);
+                        }
+                        Err(err) => warn!("Couldn't derive new image by path: {}", err),
+                    },
+                    DebouncedEvent::Remove(path) => {
                         let mut state = gallery_state.write().unwrap();
+                        // TODO: dedupe this code elegantly with the rename from above
                         state
                             .images
                             .iter()
-                            .position(|ref img| from_path.ends_with(PathBuf::from(img.src.clone())))
-                            .and_then(|position: usize| {
-                                state.images.get_mut(position).and_then(|img| {
-                                    image_path_to_src(&to_path)
-                                        .and_then(|src| {
-                                            img.src = src;
-                                            image_path_to_name(&to_path)
-                                        })
-                                        .and_then(|name| {
-                                            img.name = name;
-                                            image_path_to_desc(&to_path)
-                                        })
-                                        .and_then(|desc| {
-                                            img.desc = desc;
-                                            Some(true)
-                                        })
-                                })
+                            .position(|ref img| path.ends_with(PathBuf::from(&img.src)))
+                            .map(|pos: usize| state.images.swap_remove(pos))
+                            .and_then(|old_img| {
+                                debug!("Handling removed image {}", old_img.name);
+                                Some(true)
                             });
-                    }
-                    DebouncedEvent::Create(path) => {
-                        if let (Some(src), Some(name), Some(desc)) = (
-                            image_path_to_src(&path),
-                            image_path_to_name(&path),
-                            image_path_to_desc(&path),
-                        ) {
-                            let image = Image {
-                                href: String::from("#"),
-                                src: src,
-                                name: name,
-                                desc: desc,
-                            };
-                            gallery_state.write().unwrap().images.push(image);
-                        }
                     }
                     _ => {}
                 },
@@ -79,14 +124,46 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
     });
 }
 
-fn image_path_to_src(path: &PathBuf) -> Option<String> {
-    env::current_dir().ok().and_then(|cwd_path_buf| {
-        let gallery_prefix = cwd_path_buf.join(PathBuf::from("./files/"));
-        path.strip_prefix(gallery_prefix)
-            .ok()
-            .and_then(|stripped| stripped.to_str())
-            .and_then(|stripped_str| Some(stripped_str.to_string()))
-    })
+#[derive(Clone)]
+pub struct Image {
+    name: String,
+    href: String,
+    src: String,
+    desc: String,
+}
+
+impl<'a> TryFrom<&'a PathBuf> for Image {
+    type Error = Box<error::Error>;
+    fn try_from(path: &PathBuf) -> Result<Self, Self::Error> {
+        match (
+            image_path_to_src(path),
+            image_path_to_name(path),
+            image_path_to_desc(path),
+        ) {
+            (Ok(src), Some(name), Some(desc)) => Ok(Image {
+                href: String::from("#"),
+                src: src,
+                name: name,
+                desc: desc,
+            }),
+            (Err(err), _, _) => Err(err),
+            _ => Err(From::from("one or more Os Strings did not contain unicode")),
+        }
+    }
+}
+
+fn image_path_to_src(path: &PathBuf) -> Result<String, Box<error::Error>> {
+    match env::current_dir() {
+        Ok(cwd_path_buf) => match path.strip_prefix(cwd_path_buf) {
+            Ok(stripped) => Ok(PathBuf::from("/")
+                .join(stripped)
+                .to_str()
+                .unwrap_or_else(|| "")
+                .to_string()),
+            Err(err) => Err(Box::new(err)),
+        },
+        Err(err) => Err(Box::new(err)),
+    }
 }
 
 fn image_path_to_name(path: &PathBuf) -> Option<String> {
@@ -98,12 +175,4 @@ fn image_path_to_name(path: &PathBuf) -> Option<String> {
 // TODO: find a way to store descriptions directly corresponding to the images
 fn image_path_to_desc(_path: &PathBuf) -> Option<String> {
     Some(String::new())
-}
-
-#[derive(Clone)]
-pub struct Image {
-    name: String,
-    href: String,
-    src: String,
-    desc: String,
 }

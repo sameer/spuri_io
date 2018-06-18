@@ -1,3 +1,4 @@
+ #![feature(try_from)]
 extern crate actix;
 extern crate actix_web;
 #[macro_use]
@@ -8,6 +9,7 @@ extern crate log;
 extern crate base64;
 extern crate env_logger;
 extern crate notify;
+
 
 use actix_web::{fs, server, App};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -55,7 +57,7 @@ const BASE: Base = Base {
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info,actix_web=info");
+        env::set_var("RUST_LOG", "info,spuri_io=debug,actix_web=info");
     }
     env_logger::init();
     info!("Starting...");
