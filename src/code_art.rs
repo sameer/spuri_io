@@ -83,9 +83,12 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
         };
         let (tx, rx) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
-        watcher
-            .watch(FOLDER_PATH, RecursiveMode::Recursive)
-            .unwrap();
+        match watcher.watch(FOLDER_PATH, RecursiveMode::Recursive) {
+            Ok(()) => {}
+            Err(err) => {
+                error!("Could not watch directory: {}", err);
+            }
+        }
         loop {
             match rx.recv() {
                 Ok(event) => match event {
