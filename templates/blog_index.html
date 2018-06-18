@@ -1,13 +1,11 @@
-{% extends "base.html" %}
-{% block title %}Blog{% endblock %}
-{% block body %}
-{% if index.is_empty() %}
-	<h2> I haven't posted anything yet. Come check back later!</h2>
+{% extends "base.html" %} {% block title %}Blog{% endblock %} {% block body %} {% if index.is_empty() %}
+<h2> I haven't posted anything yet. Come check back later!</h2>
 {% else %}
-	<h2>Recent Posts</h2>
-	{% for i in index %}
-		    <span><h3><a href="/blog/{{ i.checksum }}">{{ i.title }}</a> {{ i.last_modified }}</h3></span>
-		    <br>
-	{% endfor %}
-{% endif %}
-{% endblock %}
+<h2>Recent Posts</h2>
+{% for i in index %}
+<span>
+	<h3>
+		<a href="/blog/{{ i.checksum }}">{{ i.title }}</a> {{ i.last_modified }}
+	</h3>
+</span>
+<br> {% endfor %} {% endif %} {% endblock %}

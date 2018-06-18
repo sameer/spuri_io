@@ -1,16 +1,25 @@
-{% extends "base.html" %}
-{% block title %}Code Art Gallery{% endblock %}
-{% block body %} 
-{% if images.is_empty() %}
-    <h2>No art yet, check back later!</h2>
+{% extends "base.html" %} {% block title %}Code Art Gallery{% endblock %} {% block body %} {% if images.is_empty() %}
+<h2>No art yet, check back later!</h2>
 {% else %}
-    <h2>Gallery (click to view full-size) <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a></h2>
-    {% for img in images %}
-    <a href="{{ img.href }}"><img src="{{ img.src }}" alt="{{ img.name }}"></a>
-    <h3>{{ img.name }}</h3><br>
-    <p>{{ img.desc }}</p>
-    {% endfor %}
-    <br>
-    <b>All works on this page are licensed under the <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a></b>
-{% endif %}
-{% endblock %}
+<h2>Gallery (click to view full-size)
+    <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">
+        <img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" />
+    </a>
+</h2>
+{% for img in images %}
+<figure>
+    <a href="{{ img.href }}">
+        <img src="{{ img.src }}" alt="{{ img.name }}">
+    </a>
+    <figcaption>
+        <h3>{{ img.name }}</h3>
+        <br>
+        <p>{{ img.desc }}</p>
+    </figcaption>
+</figure>
+{% endfor %}
+<br>
+<b>All works on this page are licensed under the
+    <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>
+</b>
+{% endif %} {% endblock %}
