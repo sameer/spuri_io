@@ -1,5 +1,5 @@
 # spuri_io
-Personal website rewritten in Rust w/ Actix &amp; Askama
+Personal website translated from Go to Rust
 
 ## TODO
 - [x] Translate templates from html/template to Askama
@@ -9,8 +9,8 @@ Personal website rewritten in Rust w/ Actix &amp; Askama
 - [x] Implement CSS File Integrity hash
 - [ ] Implement BlogIndex
 - [ ] Implement BlogPage
-- [ ] Implement CodeArtGallery
+- [x] Implement CodeArtGallery
 - [ ] CodeArt image resizing
-- [ ] State handling
+- [x] State handling
 - [ ] Request logging
 - [ ] And more...
