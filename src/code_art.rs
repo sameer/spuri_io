@@ -68,7 +68,7 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                         },
                         Err(err) => {
                             warn!(
-                                "Encountered error while reading file from directory: {}",
+                                "Error while reading file from directory: {}",
                                 err
                             );
                         }
@@ -78,7 +78,7 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                 info!("Found {} images", length_after - length_before);
             }
             Err(err) => {
-                warn!("Error while reading files from directory: {}", err);
+                error!("Error while reading files from directory: {}", err);
             }
         };
         let (tx, rx) = channel();
