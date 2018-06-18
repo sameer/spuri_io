@@ -19,6 +19,24 @@ pub struct Gallery {
     pub images: Vec<Image>,
 }
 
+impl Gallery {
+    fn remove_image(&mut self, path: &PathBuf) {
+        match image_path_to_src(&path) {
+            Ok(old_src) => {
+                self.images
+                    .iter()
+                    .position(|ref img| img.src == old_src)
+                    .map(|pos: usize| self.images.swap_remove(pos))
+                    .and_then(|old_img| {
+                        debug!("Removing image {}", old_img.name);
+                        Some(true)
+                    });
+            }
+            Err(err) => warn!("Couldn't derive original image by path: {}", err),
+        }
+    }
+}
+
 pub fn gallery(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html")
@@ -57,22 +75,16 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                     };
                 });
                 let length_after = state.images.len();
-                info!(
-                    "Found {} images and added them",
-                    length_after - length_before
-                );
+                info!("Found {} images", length_after - length_before);
             }
             Err(err) => {
-                warn!(
-                    "Encountered error while reading files from directory: {}",
-                    err
-                );
+                warn!("Error while reading files from directory: {}", err);
             }
         };
         let (tx, rx) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(10)).unwrap();
+        let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
         watcher
-            .watch(FOLDER_PATH, RecursiveMode::NonRecursive)
+            .watch(FOLDER_PATH, RecursiveMode::Recursive)
             .unwrap();
         loop {
             match rx.recv() {
@@ -80,18 +92,8 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                     DebouncedEvent::Rename(from_path, to_path) => match Image::try_from(&to_path) {
                         Ok(img_to_add) => {
                             let mut state = gallery_state.write().unwrap();
-                            state
-                                .images
-                                .iter()
-                                .position(|ref img| from_path.ends_with(PathBuf::from(&img.src)))
-                                .map(|pos: usize| state.images.swap_remove(pos))
-                                .and_then(|old_img| {
-                                    debug!(
-                                        "Handling image move from {} to {}",
-                                        old_img.name, img_to_add.name
-                                    );
-                                    Some(true)
-                                });
+                            state.remove_image(&from_path);
+                            debug!("Handling new image {}", img_to_add.name);
                             state.images.push(img_to_add);
                         }
                         Err(err) => warn!("Couldn't derive moved image by path: {}", err),
@@ -105,16 +107,7 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                     },
                     DebouncedEvent::Remove(path) => {
                         let mut state = gallery_state.write().unwrap();
-                        // TODO: dedupe this code elegantly with the rename from above
-                        state
-                            .images
-                            .iter()
-                            .position(|ref img| path.ends_with(PathBuf::from(&img.src)))
-                            .map(|pos: usize| state.images.swap_remove(pos))
-                            .and_then(|old_img| {
-                                debug!("Handling removed image {}", old_img.name);
-                                Some(true)
-                            });
+                        state.remove_image(&path);
                     }
                     _ => {}
                 },
