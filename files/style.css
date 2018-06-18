@@ -13,6 +13,9 @@ img {
 img.ico {
     height: 1ex;
 }
+img.adjacent-text {
+    vertical-align: middle;
+}
 h1,h2 {
     border-bottom: 1px solid silver;
 }
