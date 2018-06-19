@@ -28,7 +28,7 @@ impl Gallery {
                     .position(|ref img| img.src == old_src)
                     .map(|pos: usize| self.images.swap_remove(pos))
                     .and_then(|old_img| {
-                        debug!("Removing image {}", old_img.name);
+                        debug!("Removing {:?}", old_img);
                         Some(true)
                     });
             }
@@ -61,16 +61,13 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                     match path_result {
                         Ok(path) => match Image::try_from(&path) {
                             Ok(img) => {
-                                debug!("Adding image {}", img.name);
+                                debug!("Adding {:?}", img);
                                 state.images.push(img);
                             }
                             Err(err) => warn!("Couldn't derive new image by path: {}", err),
                         },
                         Err(err) => {
-                            warn!(
-                                "Error while reading file from directory: {}",
-                                err
-                            );
+                            warn!("Error while reading file from directory: {}", err);
                         }
                     };
                 });
@@ -96,14 +93,14 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
                         Ok(img_to_add) => {
                             let mut state = gallery_state.write().unwrap();
                             state.remove_image(&from_path);
-                            debug!("Handling new image {}", img_to_add.name);
+                            debug!("Handling added {:?}", img_to_add);
                             state.images.push(img_to_add);
                         }
                         Err(err) => warn!("Couldn't derive moved image by path: {}", err),
                     },
                     DebouncedEvent::Create(path) => match Image::try_from(&path) {
                         Ok(img) => {
-                            debug!("Handling new image {}", img.name);
+                            debug!("Handling added {:?}", img);
                             gallery_state.write().unwrap().images.push(img);
                         }
                         Err(err) => warn!("Couldn't derive new image by path: {}", err),
@@ -120,7 +117,7 @@ pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
     });
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Image {
     name: String,
     href: String,
@@ -137,13 +134,13 @@ impl<'a> TryFrom<&'a PathBuf> for Image {
             image_path_to_desc(path),
         ) {
             (Ok(src), Some(name), Some(desc)) => Ok(Image {
-                href: String::from("#"),
-                src: src,
+                href: src.clone(),
+                src: src, // TODO: change src to be a srcset with smaller alternatives
                 name: name,
                 desc: desc,
             }),
             (Err(err), _, _) => Err(err),
-            _ => Err(From::from("one or more Os Strings did not contain unicode")),
+            _ => Err(From::from("one or more OsStr's did not contain unicode characters")),
         }
     }
 }
@@ -163,9 +160,22 @@ fn image_path_to_src(path: &PathBuf) -> Result<String, Box<error::Error>> {
 }
 
 fn image_path_to_name(path: &PathBuf) -> Option<String> {
-    path.file_name()
-        .and_then(|os_str| os_str.to_str())
-        .and_then(|regular_str| Some(regular_str.to_string()))
+    path.file_stem()
+        .and_then(|stem_os_str| stem_os_str.to_str())
+        .and_then(|stem_str| Some(stem_str.to_string()))
+        .and_then(|stem_string| {
+            Some(
+                stem_string
+                    .chars()
+                    .fold(String::new(), |mut acc, x| {
+                        if acc.len() != 0 && x.is_uppercase() {
+                            acc.push(' ');
+                        }
+                        acc.push(x);
+                        acc
+                    }),
+            )
+        })
 }
 
 // TODO: find a way to store descriptions directly corresponding to the images
