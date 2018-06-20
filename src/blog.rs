@@ -16,7 +16,6 @@ pub struct BlogPage {
 }
 
 pub fn blog_page(data: (State<BlogIndex>, Path<String>)) -> impl Responder {
-    info!("Hit");
     let path_page_title = data.1.into_inner();
     for page in &data.0.index {
         if page.title == path_page_title {
@@ -25,7 +24,6 @@ pub fn blog_page(data: (State<BlogIndex>, Path<String>)) -> impl Responder {
                 .body(page.render().unwrap());
         }
     }
-    info!("fail");
     HttpResponse::NotFound().content_type("text/html").body(
         Error {
             _parent: data.0._parent.clone(),
