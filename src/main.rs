@@ -1,4 +1,4 @@
- #![feature(try_from)]
+#![feature(try_from)]
 extern crate actix;
 extern crate actix_web;
 #[macro_use]
@@ -10,8 +10,7 @@ extern crate base64;
 extern crate env_logger;
 extern crate notify;
 
-
-use actix_web::{fs, server, App};
+use actix_web::{fs, middleware, server, App};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::env;
 use std::sync::{Arc, RwLock};
@@ -81,15 +80,18 @@ fn main() {
             App::with_state(BlogIndex {
                 _parent: base_arc.clone(),
                 index: vec![],
-            }).prefix("/blog")
+            }).middleware(middleware::Logger::default())
+                .prefix("/blog")
                 .resource("/", |r| r.with(blog_index))
                 .resource("/{page}", |r| r.with(blog_page))
                 .boxed(),
             App::with_state(code_art_gallery)
+                .middleware(middleware::Logger::default())
                 .prefix("/code_art")
                 .resource("/", |r| r.with(code_art::gallery))
                 .boxed(),
             App::with_state(base_arc.clone())
+                .middleware(middleware::Logger::default())
                 .handler("/files", fs::StaticFiles::new("./files"))
                 .resource("/", |r| r.f(index))
                 .resource("/about", |r| r.f(about))
