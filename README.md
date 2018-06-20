@@ -1,4 +1,4 @@
-# spuri_io
+# spuri_io  [![Build Status](https://travis-ci.org/sameer/spuri_io.svg?branch=master)](https://travis-ci.org/sameer/spuri_io)
 Personal website translated from Go to Rust
 
 ## TODO
