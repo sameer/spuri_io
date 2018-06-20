@@ -1,7 +1,11 @@
+sudo: false
 language: rust
-rust:
-  - nightly
-os:
-  - linux
+matrix:
+  include:
+    - env: TARGET=x86_64-unknown-linux-gnu
+      rust: nightly
 script:
   - cargo build -v
+cache: cargo
+before_cache:
+  - chmod -R a+r $HOME/.cargo
