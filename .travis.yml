@@ -2,12 +2,17 @@ sudo: false
 language: rust
 matrix:
   include:
-    - env: TARGET=x86_64-unknown-linux-gnu
-      rust: nightly
+    - rust: nightly
 script:
   - cargo build -v
-cache: cargo
+cache:
+  cargo: true
+  apt: true
+env:
+  global:
+  - OPENSSL_VERSION=openssl-1.0.2
 before_install:
-  - sudo apt-get install -y pkg-config libssl-dev openssl pkg-config
+  - sudo apt-get update -qq
+  - sudo apt-get install -y pkg-config libssl-dev openssl pkg-config libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev
 before_cache:
   - chmod -R a+r $HOME/.cargo
