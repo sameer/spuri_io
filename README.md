@@ -10,7 +10,9 @@ Personal website translated from Go to Rust
 - [ ] Implement BlogIndex
 - [ ] Implement BlogPage
 - [x] Implement CodeArtGallery
-- [ ] CodeArt image resizing
+- [ ] CodeArt image resizing (next task)
 - [x] State handling
-- [ ] Request logging
+- [x] Request logging
+- [ ] Consult Mozilla Developer Network documentation on best practices on site accessibility
+- [ ] Brush up on CSS and add more artistic effects to the site
 - [ ] And more...
