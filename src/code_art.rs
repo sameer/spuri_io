@@ -20,20 +20,14 @@ pub struct Gallery {
 }
 
 impl Gallery {
-    fn remove_image(&mut self, path: &PathBuf) {
-        match image_path_to_src(&path) {
-            Ok(old_src) => {
-                self.images
-                    .iter()
-                    .position(|ref img| img.src == old_src)
-                    .map(|pos: usize| self.images.swap_remove(pos))
-                    .and_then(|old_img| {
-                        debug!("Removing {:?}", old_img);
-                        Some(true)
-                    });
-            }
-            Err(err) => warn!("Couldn't derive original image by path: {}", err),
-        }
+    fn remove_image(&mut self, path_to_remove: &PathBuf) -> Result<Image, Box<error::Error>> {
+        image_path_to_src(&path_to_remove).and_then(|src_to_remove| {
+            self.images
+                .iter()
+                .position(|ref img| img.src == src_to_remove)
+                .map(|pos_to_remove: usize| self.images.swap_remove(pos_to_remove))
+                .ok_or_else(|| From::from("Could not find old image by src"))
+        })
     }
 }
 
@@ -45,73 +39,95 @@ pub fn gallery(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
 
 const FOLDER_PATH: &str = "./files/code_art";
 
+fn initialize_gallery(uninitialized_gallery_state: Arc<RwLock<Gallery>>) {
+    match env::current_dir().and_then(|cwd_path_buf| {
+        let gallery_prefix = cwd_path_buf.join(PathBuf::from(FOLDER_PATH));
+        fs::read_dir(gallery_prefix)
+    }) {
+        Ok(dir_iter) => {
+            let mut state = uninitialized_gallery_state.write().unwrap();
+            let length_before = state.images.len();
+            let path_iter = dir_iter.map(|dir_entry_result| {
+                dir_entry_result.and_then(|dir_entry| Ok(dir_entry.path()))
+            });
+            path_iter.for_each(|path_result| {
+                match path_result {
+                    Ok(path) => match Image::try_from(&path) {
+                        Ok(img) => {
+                            debug!("Adding {:?}", img);
+                            state.images.push(img);
+                        }
+                        Err(err) => warn!("Couldn't derive new image by path: {}", err),
+                    },
+                    Err(err) => {
+                        warn!("Error while reading file from directory: {}", err);
+                    }
+                };
+            });
+            let length_after = state.images.len();
+            info!("Found {} images", length_after - length_before);
+        }
+        Err(err) => {
+            error!("Error while reading files from directory: {}", err);
+        }
+    };
+}
+
 pub fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
     thread::spawn(move || {
-        match env::current_dir().and_then(|cwd_path_buf| {
-            let gallery_prefix = cwd_path_buf.join(PathBuf::from(FOLDER_PATH));
-            fs::read_dir(gallery_prefix)
-        }) {
-            Ok(dir_iter) => {
-                let mut state = gallery_state.write().unwrap();
-                let length_before = state.images.len();
-                let path_iter = dir_iter.map(|dir_entry_result| {
-                    dir_entry_result.and_then(|dir_entry| Ok(dir_entry.path()))
-                });
-                path_iter.for_each(|path_result| {
-                    match path_result {
-                        Ok(path) => match Image::try_from(&path) {
-                            Ok(img) => {
-                                debug!("Adding {:?}", img);
-                                state.images.push(img);
-                            }
-                            Err(err) => warn!("Couldn't derive new image by path: {}", err),
-                        },
-                        Err(err) => {
-                            warn!("Error while reading file from directory: {}", err);
-                        }
-                    };
-                });
-                let length_after = state.images.len();
-                info!("Found {} images", length_after - length_before);
-            }
-            Err(err) => {
-                error!("Error while reading files from directory: {}", err);
-            }
-        };
-        let (tx, rx) = channel();
+        initialize_gallery(gallery_state.clone());
+
+        let (tx, notify_event_receiver) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
         match watcher.watch(FOLDER_PATH, RecursiveMode::Recursive) {
             Ok(()) => {}
             Err(err) => {
-                error!("Could not watch directory: {}", err);
+                error!("Could not watch code art directory: {}", err);
+                return;
             }
         }
         loop {
-            match rx.recv() {
+            match notify_event_receiver.recv() {
                 Ok(event) => match event {
-                    DebouncedEvent::Rename(from_path, to_path) => match Image::try_from(&to_path) {
-                        Ok(img_to_add) => {
-                            let mut state = gallery_state.write().unwrap();
-                            state.remove_image(&from_path);
-                            debug!("Handling added {:?}", img_to_add);
-                            state.images.push(img_to_add);
+                    DebouncedEvent::Rename(original_path, renamed_path) => {
+                        match Image::try_from(&renamed_path) {
+                            Ok(renamed_img) => {
+                                let mut state = gallery_state.write().unwrap();
+                                state
+                                    .remove_image(&original_path)
+                                    .and_then(|original_img| {
+                                        debug!(
+                                            "Handling move from {:?} to {:?}",
+                                            original_img, renamed_img
+                                        );
+                                        Ok(original_img)
+                                    })
+                                    .unwrap();
+                                state.images.push(renamed_img);
+                            }
+                            Err(err) => warn!("Couldn't derive moved image by path: {}", err),
                         }
-                        Err(err) => warn!("Couldn't derive moved image by path: {}", err),
-                    },
-                    DebouncedEvent::Create(path) => match Image::try_from(&path) {
-                        Ok(img) => {
-                            debug!("Handling added {:?}", img);
-                            gallery_state.write().unwrap().images.push(img);
+                    }
+                    DebouncedEvent::Create(created_path) => match Image::try_from(&created_path) {
+                        Ok(created_img) => {
+                            debug!("Handling added {:?}", created_img);
+                            gallery_state.write().unwrap().images.push(created_img);
                         }
                         Err(err) => warn!("Couldn't derive new image by path: {}", err),
                     },
-                    DebouncedEvent::Remove(path) => {
+                    DebouncedEvent::Remove(removed_path) => {
                         let mut state = gallery_state.write().unwrap();
-                        state.remove_image(&path);
+                        state
+                            .remove_image(&removed_path)
+                            .and_then(|img| {
+                                debug!("Handling removed {:?}", img);
+                                Ok(img)
+                            })
+                            .unwrap();
                     }
                     _ => {}
                 },
-                Err(err) => error!("{}", err),
+                Err(err) => error!("Encountered error in notify event loop {}", err),
             }
         }
     });
@@ -140,7 +156,9 @@ impl<'a> TryFrom<&'a PathBuf> for Image {
                 desc: desc,
             }),
             (Err(err), _, _) => Err(err),
-            _ => Err(From::from("one or more OsStr's did not contain unicode characters")),
+            _ => Err(From::from(
+                format!("Path contained invalid unicode characters or no file name could be identified: {:?}", path.as_os_str()),
+            )),
         }
     }
 }
@@ -148,33 +166,35 @@ impl<'a> TryFrom<&'a PathBuf> for Image {
 fn image_path_to_src(path: &PathBuf) -> Result<String, Box<error::Error>> {
     match env::current_dir() {
         Ok(cwd_path_buf) => match path.strip_prefix(cwd_path_buf) {
-            Ok(stripped) => Ok(PathBuf::from("/")
-                .join(stripped)
+            Ok(relative_path) => PathBuf::from("/")
+                .join(relative_path)
                 .to_str()
-                .unwrap_or_else(|| "")
-                .to_string()),
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    From::from(format!(
+                        "Path contained invalid unicode characters: {:?}",
+                        path.as_os_str()
+                    ))
+                }),
             Err(err) => Err(Box::new(err)),
         },
         Err(err) => Err(Box::new(err)),
     }
 }
 
+// Adds a space before uppercase letters excluding the first. 'CamelCaseName' --> 'Camel Case Name'
 fn image_path_to_name(path: &PathBuf) -> Option<String> {
     path.file_stem()
         .and_then(|stem_os_str| stem_os_str.to_str())
         .and_then(|stem_str| Some(stem_str.to_string()))
         .and_then(|stem_string| {
-            Some(
-                stem_string
-                    .chars()
-                    .fold(String::new(), |mut acc, x| {
-                        if acc.len() != 0 && x.is_uppercase() {
-                            acc.push(' ');
-                        }
-                        acc.push(x);
-                        acc
-                    }),
-            )
+            Some(stem_string.chars().fold(String::new(), |mut acc, x| {
+                if acc.len() != 0 && x.is_uppercase() {
+                    acc.push(' ');
+                }
+                acc.push(x);
+                acc
+            }))
         })
 }
 
