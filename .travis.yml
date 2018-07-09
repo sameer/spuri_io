@@ -5,6 +5,7 @@ matrix:
   include:
     - rust: nightly
 script:
+  - cargo update
   - cargo build -v
 cache:
   cargo: true
