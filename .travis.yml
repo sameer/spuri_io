@@ -21,7 +21,6 @@ before_install:
   - cd openssl-1.1.0h
   - export CC=...
   - ./Configure linux-x86_64 -fPIC
-  - make -j$(nproc)
-  - make
+  - make -j2
 before_cache:
   - chmod -R a+r $HOME/.cargo
