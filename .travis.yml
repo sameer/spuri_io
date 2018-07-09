@@ -20,7 +20,8 @@ before_install:
   - tar xf openssl-1.1.0h.tar.gz
   - cd openssl-1.1.0h
   - export CC=...
-  - ./Configure --prefix=... linux-x86_64 -fPIC
+  - ./Configure linux-x86_64 -fPIC
   - make -j$(nproc)
+  - make
 before_cache:
   - chmod -R a+r $HOME/.cargo
