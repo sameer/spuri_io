@@ -4,7 +4,8 @@ die() {
 	exit 1
 }
 
-[[ -d "${OPENSSL_DIR}" ]] && die "Directory already exists, refusing to build again"
+[[ -d "${OPENSSL_DIR}/lib" ]] && die "Directory already exists, refusing to build again"
+rm -r ${OPENSSL_DIR}
 mkdir /tmp/build/
 [[ -d /tmp/build ]] || die "Failed to create build directory"
 cd /tmp/build/
