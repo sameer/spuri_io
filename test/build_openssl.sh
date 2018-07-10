@@ -1,7 +1,18 @@
-mkdir /tmp/build
-cd /tmp/build
-curl https://www.openssl.org/source/openssl-1.1.0h.tar.gz -o openssl.tar.gz
-tar xzf openssl.tar.gz && cd openssl-1.1.0h
-./Configure linux-x86_64 -fPIC -g no-shared
+#!/bin/bash
+die() {
+	echo >&2 "$@"
+	exit 1
+}
+
+[[ -d "${OPENSSL_DIR}" ]] && die "Directory already exists, refusing to build again"
+mkdir /tmp/build/
+[[ -d /tmp/build ]] || die "Failed to create build directory"
+cd /tmp/build/
+curl https://www.openssl.org/source/openssl-1.1.0h.tar.gz -o /tmp/build/openssl.tar.gz 
+[[ -f /tmp/build/openssl.tar.gz ]] || die "Failed to download openssl source code"
+tar xzf /tmp/build/openssl.tar.gz && cd openssl-1.1.0h
+./Configure --prefix=${OPENSSL_DIR} --openssldir=${OPENSSL_DIR} linux-x86_64 -fPIC -g no-shared
 make -j$(nproc)
+make install
+rm -r /tmp/build/
 cd -
