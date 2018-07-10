@@ -1,7 +1,7 @@
 #!/bin/bash
 die() {
 	echo >&2 "$@"
-	exit 1
+	exit 0
 }
 
 [[ -d "${OPENSSL_DIR}/lib" ]] && die "Directory already exists, refusing to build again"
