@@ -5,22 +5,13 @@ matrix:
   include:
     - rust: nightly
 script:
+  - ./test/build_openssl.sh
   - cargo update
   - cargo build -v
 cache:
   cargo: true
-  apt: true
 env:
   global:
-  - OPENSSL_DIR=~/openssl-1.1.0h
-before_install:
-  - sudo apt-get update -qq
-  - cd
-  - curl -O https://www.openssl.org/source/openssl-1.1.0h.tar.gz
-  - tar xf openssl-1.1.0h.tar.gz
-  - cd openssl-1.1.0h
-  - export CC=...
-  - ./Configure linux-x86_64 -fPIC
-  - make -j2
+  - OPENSSL_DIR=/tmp/build/openssl-1.1.0h
 before_cache:
   - chmod -R a+r $HOME/.cargo
