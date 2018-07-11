@@ -7,12 +7,13 @@ Personal website translated from Go to Rust
 - [x] Implement About
 - [x] Implement NavItems
 - [x] Implement CSS File Integrity hash
-- [ ] Implement BlogIndex
-- [ ] Implement BlogPage
+- [ ] Implement BlogIndex (next task)
+- [ ] Implement BlogPage (next task)
 - [x] Implement CodeArtGallery
-- [ ] CodeArt image resizing (next task)
+- [x] CodeArt image resizing
 - [x] State handling
 - [x] Request logging
-- [ ] Consult Mozilla Developer Network documentation on best practices on site accessibility
+- [ ] Consult Mozilla Developer Network documentation (MDN) on best practices for site accessibility
+- [ ] Consult MDN docmentation on modern HTML features like [picture](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/picture)
 - [ ] Brush up on CSS and add more artistic effects to the site
 - [ ] And more...
