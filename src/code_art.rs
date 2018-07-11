@@ -2,7 +2,7 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
-use image::{FilterType, ImageOutputFormat, ImageResult};
+use image::{FilterType, ImageOutputFormat, ImageResult, GenericImage};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -18,7 +18,8 @@ use std::time::Duration;
 // Sizes are those denoted to be 16:9/~16:9 in the range of (N/A, 100%] percent of web users by https://en.wikipedia.org/wiki/Display_resolution
 // Of note (to future me) is the fact that 4K UHD/WQHD is not included; my code art images are never larger than FHD (yet), so there is no reason
 // to provide these sizes.
-const AVAILABLE_SIZES: [(u32, u32); 6] = [
+type ImageSize = (u32, u32);
+const AVAILABLE_SIZES: [ImageSize; 6] = [
     (1920, 1080),
     (1600, 900),
     (1536, 864),
@@ -66,7 +67,7 @@ pub fn gallery(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
 }
 
 #[derive(Template)]
-#[template(path = "code_art_gallery.html")]
+#[template(path = "code_art_gallery.html", escape = "none")]
 pub struct Gallery {
     _parent: Arc<Base>,
     images: Vec<Image>,
@@ -200,7 +201,7 @@ struct Image {
     srcset: String,
     src: String,
     desc: String,
-    size_to_image_bytes: HashMap<(u32, u32), Arc<Vec<u8>>>,
+    size_to_image_bytes: HashMap<ImageSize, Arc<Vec<u8>>>,
 }
 
 impl Image {
@@ -234,12 +235,13 @@ impl Image {
             })
             .map(|resize| {
                 format!(
-                    "/code_art/resizer{}",
-                    serde_urlencoded::to_string(resize).unwrap()
+                    "/code_art/resizer?{} {}w",
+                    serde_urlencoded::to_string(&resize).unwrap(),
+                    resize.width,
                 )
             })
             .collect::<Vec<String>>()
-            .join(" ")
+            .join(", ")
     }
 
     // Adds a space before uppercase letters excluding the first. 'CamelCaseName' --> 'Camel Case Name'
@@ -265,14 +267,18 @@ impl Image {
 
     fn path_to_resized_image_bytes(
         path: &PathBuf,
-    ) -> ImageResult<HashMap<(u32, u32), Arc<Vec<u8>>>> {
+    ) -> ImageResult<HashMap<ImageSize, Arc<Vec<u8>>>> {
         image::open(path).and_then(|dynamic_image| {
             let mut size_to_image_bytes = HashMap::new();
             AVAILABLE_SIZES
                 .iter()
                 .try_for_each(|size| {
-                    let resized_dynamic_image =
-                        dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest);
+                    let resized_dynamic_image;
+                    if &(dynamic_image.width(), dynamic_image.height()) == size {
+                        resized_dynamic_image = dynamic_image.clone();
+                    } else {
+                        resized_dynamic_image = dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest);
+                    }
                     let mut resized_image_bytes = Vec::new();
                     // If this fails, indicates that png_codec is unavailable, in which case
                     let write_result = resized_dynamic_image
