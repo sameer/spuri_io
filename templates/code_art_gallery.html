@@ -9,7 +9,7 @@
 {% for img in images %}
 <figure>
     <a href="{{ img.href }}">
-        <img src="{{ img.src }}" alt="{{ img.name }}">
+        <img src="{{ img.src }}" srcset="{{ img.srcset }}" alt="{{ img.name }}">
     </a>
     <figcaption>
         <h3>{{ img.name }}</h3>
