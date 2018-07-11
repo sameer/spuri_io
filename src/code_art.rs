@@ -117,12 +117,18 @@ impl Gallery {
     }
 
     pub fn new(parent: Arc<Base>) -> Arc<RwLock<Gallery>> {
-        let gallery = Arc::new(RwLock::new(Gallery {
-            _parent: parent,
-            images: Vec::new(),
-        }));
+        let gallery = Arc::new(RwLock::new(Gallery::from(parent)));
         spawn_gallery_updater(gallery.clone());
         gallery
+    }
+}
+
+impl From<Arc<Base>> for Gallery {
+    fn from(parent: Arc<Base>) -> Gallery{
+        Gallery {
+            _parent: parent,
+            images: Vec::new(),
+        }
     }
 }
 

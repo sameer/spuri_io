@@ -24,12 +24,8 @@ mod base;
 use base::*;
 
 mod code_art;
-
 mod blog;
-use blog::*;
-
 mod static_pages;
-use static_pages::*;
 
 const DEV_BIND_ADDRESS: &'static str = "127.0.0.1:8080";
 
@@ -73,19 +69,17 @@ fn main() {
     });
 
     let base_arc = Arc::new(BASE);
+    let blog_index = blog::BlogIndex::new(base_arc.clone());
     let code_art_gallery = code_art::Gallery::new(base_arc.clone());
 
     let serv = server::new(move || {
         // TODO: find a way to do this on the fly rather than doing it in
         // an ugly manner here
         vec![
-            App::with_state(BlogIndex {
-                _parent: base_arc.clone(),
-                index: vec![],
-            }).middleware(middleware::Logger::default())
+            App::with_state(blog_index.clone()).middleware(middleware::Logger::default())
                 .prefix("/blog")
-                .resource("/", |r| r.with(blog_index))
-                .resource("/{page}", |r| r.with(blog_page))
+                .resource("/", |r| r.with(blog::blog_index))
+                .resource("/{page}", |r| r.with(blog::blog_page))
                 .boxed(),
             App::with_state(code_art_gallery.clone())
                 .middleware(middleware::Logger::default())
@@ -96,8 +90,8 @@ fn main() {
             App::with_state(base_arc.clone())
                 .middleware(middleware::Logger::default())
                 .handler("/files", fs::StaticFiles::new("./files"))
-                .resource("/", |r| r.f(index))
-                .resource("/about", |r| r.f(about))
+                .resource("/", |r| r.f(static_pages::index))
+                .resource("/about", |r| r.f(static_pages::about))
                 .boxed(),
         ]
     });
