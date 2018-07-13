@@ -237,14 +237,14 @@ impl Image {
         }
     }
 
-    fn src_to_srcset(src: &String) -> String {
+    fn src_to_srcset(src: &str) -> String {
         // AVAILABLE_SIZES
         AVAILABLE_SIZES
             .iter()
             .map(|size| Resize {
                 width: size.0,
                 height: size.1,
-                src: src.clone(),
+                src: src.to_string(),
             })
             .map(|resize| {
                 format!(
@@ -264,7 +264,7 @@ impl Image {
             .and_then(|stem_str| Some(stem_str.to_string()))
             .and_then(|stem_string| {
                 Some(stem_string.chars().fold(String::new(), |mut acc, x| {
-                    if acc.len() != 0 && x.is_uppercase() {
+                    if !acc.is_empty() && x.is_uppercase() {
                         acc.push(' ');
                     }
                     acc.push(x);
@@ -286,13 +286,12 @@ impl Image {
             AVAILABLE_SIZES
                 .iter()
                 .try_for_each(|size| {
-                    let resized_dynamic_image;
-                    if &(dynamic_image.width(), dynamic_image.height()) == size {
-                        resized_dynamic_image = dynamic_image.clone();
-                    } else {
-                        resized_dynamic_image =
-                            dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest);
-                    }
+                    let resized_dynamic_image =
+                        if &(dynamic_image.width(), dynamic_image.height()) == size {
+                            dynamic_image.clone()
+                        } else {
+                            dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest)
+                        };
                     let mut resized_image_bytes = Vec::new();
                     // If this fails, indicates that png_codec is unavailable, in which case
                     let write_result = resized_dynamic_image
@@ -320,10 +319,10 @@ impl<'a> TryFrom<&'a PathBuf> for Image {
             (Ok(src), Some(name), Some(desc), Ok(size_to_image_bytes)) => Ok(Image {
                 href: src.clone(),
                 srcset: Image::src_to_srcset(&src),
-                src: src,
-                name: name,
-                desc: desc,
-                size_to_image_bytes: size_to_image_bytes
+                src,
+                name,
+                desc,
+                size_to_image_bytes,
             }),
             (Err(err), _, _, _) => Err(err),
             (Ok(_), _, _, Err(err)) => Err(Box::new(err)),

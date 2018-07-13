@@ -12,8 +12,8 @@ extern crate env_logger;
 extern crate notify;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_urlencoded;
 extern crate image;
+extern crate serde_urlencoded;
 
 use actix_web::{fs, middleware, server, App};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -23,11 +23,11 @@ use std::sync::Arc;
 mod base;
 use base::*;
 
-mod code_art;
 mod blog;
+mod code_art;
 mod static_pages;
 
-const DEV_BIND_ADDRESS: &'static str = "127.0.0.1:8080";
+const DEV_BIND_ADDRESS: &str = "127.0.0.1:8080";
 
 const BASE: Base = Base {
     css_file_hash: include_str!("css_file_hash"),
@@ -76,7 +76,8 @@ fn main() {
         // TODO: find a way to do this on the fly rather than doing it in
         // an ugly manner here
         vec![
-            App::with_state(blog_index.clone()).middleware(middleware::Logger::default())
+            App::with_state(blog_index.clone())
+                .middleware(middleware::Logger::default())
                 .prefix("/blog")
                 .resource("/", |r| r.with(blog::blog_index))
                 .resource("/{page}", |r| r.with(blog::blog_page))
@@ -97,28 +98,24 @@ fn main() {
     });
 
     let trying_to_be_secure: bool = bind_address.ends_with(":443");
-    match trying_to_be_secure {
-        true => {
-            let cert_file_path = env::var("CERT_FILE").unwrap();
-            let key_file_path = env::var("KEY_FILE").unwrap();
-            let mut ssl_acceptor_builder =
-                SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-            ssl_acceptor_builder
-                .set_certificate_file(cert_file_path, SslFiletype::PEM)
-                .unwrap();
-            ssl_acceptor_builder
-                .set_private_key_file(key_file_path, SslFiletype::PEM)
-                .unwrap();
-            info!("Running in SSL mode");
-            serv.bind_ssl(bind_address, ssl_acceptor_builder)
-                .unwrap()
-                .start()
-        }
-        false => {
-            warn!("Running insecurely!");
-            serv.bind(bind_address).unwrap().start()
-        }
-    };
+    if trying_to_be_secure {
+        let cert_file_path = env::var("CERT_FILE").unwrap();
+        let key_file_path = env::var("KEY_FILE").unwrap();
+        let mut ssl_acceptor_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+        ssl_acceptor_builder
+            .set_certificate_file(cert_file_path, SslFiletype::PEM)
+            .unwrap();
+        ssl_acceptor_builder
+            .set_private_key_file(key_file_path, SslFiletype::PEM)
+            .unwrap();
+        info!("Running in SSL mode");
+        serv.bind_ssl(bind_address, ssl_acceptor_builder)
+            .unwrap()
+            .start();
+    } else {
+        warn!("Running insecurely!");
+        serv.bind(bind_address).unwrap().start();
+    }
     info!("Ready!");
     let _ = sys.run();
 }
