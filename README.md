@@ -16,4 +16,6 @@ Personal website translated from Go to Rust
 - [ ] Consult Mozilla Developer Network documentation (MDN) on best practices for site accessibility
 - [ ] Consult MDN docmentation on modern HTML features like [picture](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/picture)
 - [ ] Brush up on CSS and add more artistic effects to the site
+- [ ] Look into cache-control for static files -- right now the server sends none
+- [ ] Send Travis release-built binaries to server and automatically restart
 - [ ] And more...
