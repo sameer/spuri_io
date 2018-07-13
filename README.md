@@ -18,4 +18,5 @@ Personal website translated from Go to Rust
 - [ ] Brush up on CSS and add more artistic effects to the site
 - [ ] Look into cache-control for static files -- right now the server sends none
 - [ ] Send Travis release-built binaries to server and automatically restart
+- [ ] Start adding tests and checking code coverage
 - [ ] And more...
