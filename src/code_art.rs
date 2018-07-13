@@ -1,8 +1,9 @@
+use actix_web::http::header::{CacheControl, CacheDirective};
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
-use image::{FilterType, ImageOutputFormat, ImageResult, GenericImage};
+use image::{FilterType, GenericImage, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -28,6 +29,8 @@ const AVAILABLE_SIZES: [ImageSize; 6] = [
     (1280, 720),
 ];
 
+const TEN_YEARS_IN_SECONDS: u32 = 315_360_000;
+
 pub fn resizer(
     (gallery_state, resizer_query): (State<Arc<RwLock<Gallery>>>, Query<Resize>),
 ) -> impl Responder {
@@ -46,6 +49,10 @@ pub fn resizer(
                         || HttpResponse::InternalServerError().finish(),
                         |resized_image_bytes| {
                             HttpResponse::Ok()
+                                .set(CacheControl(vec![
+                                    CacheDirective::Public,
+                                    CacheDirective::MaxAge(TEN_YEARS_IN_SECONDS),
+                                ]))
                                 .content_type("image/png")
                                 .body(resized_image_bytes)
                         },
