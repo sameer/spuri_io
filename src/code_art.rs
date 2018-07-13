@@ -131,7 +131,7 @@ impl Gallery {
 }
 
 impl From<Arc<Base>> for Gallery {
-    fn from(parent: Arc<Base>) -> Gallery{
+    fn from(parent: Arc<Base>) -> Gallery {
         Gallery {
             _parent: parent,
             images: Vec::new(),
@@ -290,7 +290,8 @@ impl Image {
                     if &(dynamic_image.width(), dynamic_image.height()) == size {
                         resized_dynamic_image = dynamic_image.clone();
                     } else {
-                        resized_dynamic_image = dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest);
+                        resized_dynamic_image =
+                            dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest);
                     }
                     let mut resized_image_bytes = Vec::new();
                     // If this fails, indicates that png_codec is unavailable, in which case
