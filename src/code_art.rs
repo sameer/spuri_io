@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
 use std::error;
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
@@ -207,7 +208,6 @@ fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
     });
 }
 
-#[derive(Clone, Debug)]
 struct Image {
     name: String,
     href: String,
@@ -215,6 +215,14 @@ struct Image {
     src: String,
     desc: String,
     size_to_image_bytes: HashMap<ImageSize, Arc<Vec<u8>>>,
+}
+
+// TODO: this adds overhead that I feel could be avoided if a wrapper was provided for the size_to_image_bytes field. The wrapper itself would
+// implement fmt::Debug and just show something like "not shown" (wording is debatable)
+impl fmt::Debug for Image {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Image {{ name: {:?} href: {:?} src: {:?} desc: {:?} }}", self.name, self.href, self.src, self.desc)
+    }
 }
 
 impl Image {
