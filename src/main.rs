@@ -15,7 +15,8 @@ extern crate serde_derive;
 extern crate image;
 extern crate serde_urlencoded;
 
-use actix_web::{fs, middleware, server, App};
+use actix_web::http::header::IntoHeaderValue;
+use actix_web::{fs, http, middleware, server, App};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::env;
 use std::sync::Arc;
@@ -25,6 +26,7 @@ use base::*;
 
 mod blog;
 mod code_art;
+mod header;
 mod static_pages;
 
 const DEV_BIND_ADDRESS: &str = "127.0.0.1:8080";
@@ -79,20 +81,28 @@ fn main() {
             App::with_state(blog_index.clone())
                 .middleware(middleware::Logger::default())
                 .prefix("/blog")
-                .resource("/", |r| r.with(blog::blog_index))
-                .resource("/{page}", |r| r.with(blog::blog_page))
+                .resource("/", |r| r.with(blog::BlogIndex::get_index))
+                .resource("/{page}", |r| r.with(blog::BlogIndex::get_page))
                 .boxed(),
             App::with_state(code_art_gallery.clone())
                 .middleware(middleware::Logger::default())
                 .prefix("/code_art")
-                .resource("/", |r| r.with(code_art::gallery))
-                .resource("/resizer", |r| r.with(code_art::resizer))
+                .resource("/", |r| r.with(code_art::Gallery::get_index))
+                .resource("/resizer", |r| r.with(code_art::Gallery::get_resizer))
+                .boxed(),
+            App::new()
+                .middleware(middleware::Logger::default())
+                .middleware(middleware::DefaultHeaders::new().header(
+                    http::header::CACHE_CONTROL,
+                    header::cache_for_one_day().try_into().unwrap(),
+                ))
+                .prefix("/files")
+                .handler("/", fs::StaticFiles::new("./files"))
                 .boxed(),
             App::with_state(base_arc.clone())
                 .middleware(middleware::Logger::default())
-                .handler("/files", fs::StaticFiles::new("./files"))
-                .resource("/", |r| r.f(static_pages::index))
-                .resource("/about", |r| r.f(static_pages::about))
+                .resource("/", |r| r.f(static_pages::BaseIndex::get))
+                .resource("/about", |r| r.f(static_pages::About::get))
                 .boxed(),
         ]
     });

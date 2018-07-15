@@ -1,10 +1,11 @@
-use actix_web::http::header::{CacheControl, CacheDirective};
+use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
 use image::{FilterType, GenericImage, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use header::cache_forever;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
@@ -30,50 +31,6 @@ const AVAILABLE_SIZES: [ImageSize; 6] = [
     (1280, 720),
 ];
 
-const TEN_YEARS_IN_SECONDS: u32 = 315_360_000;
-
-pub fn resizer(
-    (gallery_state, resizer_query): (State<Arc<RwLock<Gallery>>>, Query<Resize>),
-) -> impl Responder {
-    let size_tuple = (resizer_query.width, resizer_query.height);
-    if AVAILABLE_SIZES.iter().any(|size| size == &size_tuple) {
-        gallery_state
-            .read()
-            .unwrap()
-            .images
-            .iter()
-            .find(|img| img.src == resizer_query.src)
-            .map_or_else(
-                || HttpResponse::NotFound().finish(),
-                |img| {
-                    img.size_to_image_bytes.get(&size_tuple).map_or_else(
-                        || HttpResponse::InternalServerError().finish(),
-                        |resized_image_bytes| {
-                            HttpResponse::Ok()
-                                .set(CacheControl(vec![
-                                    CacheDirective::Public,
-                                    CacheDirective::MaxAge(TEN_YEARS_IN_SECONDS),
-                                ]))
-                                .content_type("image/png")
-                                .body(resized_image_bytes)
-                        },
-                    )
-                },
-            )
-    }
-    // This is the ideal response code here. The query is valid and well formed but it will not be processed because it doesn't match the
-    // expectation that it should be one of AVAILABLE_SIZES. If this happens, in all likelihood, someone is just messing around with the query.
-    else {
-        HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).finish()
-    }
-}
-
-pub fn gallery(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(state.read().unwrap().render().unwrap())
-}
-
 #[derive(Template)]
 #[template(path = "code_art_gallery.html", escape = "none")]
 pub struct Gallery {
@@ -82,6 +39,45 @@ pub struct Gallery {
 }
 
 impl Gallery {
+    pub fn get_index(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
+        HttpResponse::Ok()
+            .set(ContentType::html())
+            .body(state.read().unwrap().render().unwrap())
+    }
+
+    pub fn get_resizer(
+        (gallery_state, resizer_query): (State<Arc<RwLock<Gallery>>>, Query<Resize>),
+    ) -> impl Responder {
+        let size_tuple = (resizer_query.width, resizer_query.height);
+        if AVAILABLE_SIZES.iter().any(|size| size == &size_tuple) {
+            gallery_state
+                .read()
+                .unwrap()
+                .images
+                .iter()
+                .find(|img| img.src == resizer_query.src)
+                .map_or_else(
+                    || HttpResponse::NotFound().finish(),
+                    |img| {
+                        img.size_to_image_bytes.get(&size_tuple).map_or_else(
+                            || HttpResponse::InternalServerError().finish(),
+                            |resized_image_bytes| {
+                                HttpResponse::Ok()
+                                    .set(cache_forever())
+                                    .set(ContentType::png())
+                                    .body(resized_image_bytes)
+                            },
+                        )
+                    },
+                )
+        }
+        // This is the ideal response code here. The query is valid and well formed but it will not be processed because it doesn't match the
+        // expectation that it should be one of AVAILABLE_SIZES. If this happens, in all likelihood, someone is just messing around with the query.
+        else {
+            HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).finish()
+        }
+    }
+
     fn remove_image(&mut self, path_to_remove: &PathBuf) -> Result<Image, Box<error::Error>> {
         Image::path_to_src(&path_to_remove).and_then(|src_to_remove| {
             self.images
@@ -221,7 +217,11 @@ struct Image {
 // implement fmt::Debug and just show something like "not shown" (wording is debatable)
 impl fmt::Debug for Image {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Image {{ name: {:?} href: {:?} src: {:?} desc: {:?} }}", self.name, self.href, self.src, self.desc)
+        write!(
+            f,
+            "Image {{ name: {:?} href: {:?} src: {:?} desc: {:?} }}",
+            self.name, self.href, self.src, self.desc
+        )
     }
 }
 
