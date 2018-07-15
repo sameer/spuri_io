@@ -18,17 +18,14 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-// Sizes are those denoted to be 16:9/~16:9 in the range of (N/A, 100%] percent of web users by https://en.wikipedia.org/wiki/Display_resolution
-// Of note (to future me) is the fact that 4K UHD/WQHD is not included; my code art images are never larger than FHD (yet), so there is no reason
-// to provide these sizes.
+// Sizes are all 16:9 of note (to future me) is the fact that 4K UHD/WQHD are not included; my code art images are never larger than FHD (yet), so
+// there is no reason to provide these sizes.
 type ImageSize = (u32, u32);
-const AVAILABLE_SIZES: [ImageSize; 6] = [
+const AVAILABLE_SIZES: [ImageSize; 4] = [
     (1920, 1080),
-    (1600, 900),
-    (1536, 864),
-    (1366, 768),
-    (1360, 768),
     (1280, 720),
+    (960, 540),
+    (640, 360),
 ];
 
 #[derive(Template)]
