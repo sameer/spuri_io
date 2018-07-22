@@ -14,6 +14,8 @@ extern crate notify;
 extern crate serde_derive;
 extern crate image;
 extern crate serde_urlencoded;
+extern crate ammonia;
+extern crate pulldown_cmark;
 
 use actix_web::http::header::IntoHeaderValue;
 use actix_web::{fs, http, middleware, server, App};
