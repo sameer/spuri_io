@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Template)]
 #[template(path = "blog_page.html")]
-struct BlogPage {
+struct Post {
     _parent: Arc<Base>,
     title: String,
     checksum: String,
@@ -18,19 +18,19 @@ struct BlogPage {
 
 #[derive(Template)]
 #[template(path = "blog_index.html")]
-pub struct BlogIndex {
+pub struct Index {
     _parent: Arc<Base>,
-    index: Vec<BlogPage>,
+    index: Vec<Post>,
 }
 
-impl BlogIndex {
-    pub fn get_index(state: State<Arc<RwLock<BlogIndex>>>) -> impl Responder {
+impl Index {
+    pub fn get_index(state: State<Arc<RwLock<Index>>>) -> impl Responder {
         HttpResponse::Ok()
             .set(ContentType::html())
             .body(state.read().unwrap().render().unwrap())
     }
 
-    pub fn get_page((state, path): (State<Arc<RwLock<BlogIndex>>>, Path<String>)) -> impl Responder {
+    pub fn get_page((state, path): (State<Arc<RwLock<Index>>>, Path<String>)) -> impl Responder {
         let (state, path) = (state.read().unwrap(), path.into_inner());
         state
             .index
@@ -53,14 +53,14 @@ impl BlogIndex {
             })
     }
 
-    pub fn new(parent: Arc<Base>) -> Arc<RwLock<BlogIndex>> {
-        Arc::new(RwLock::new(BlogIndex::from(parent)))
+    pub fn new(parent: Arc<Base>) -> Arc<RwLock<Index>> {
+        Arc::new(RwLock::new(Index::from(parent)))
     }
 }
 
-impl From<Arc<Base>> for BlogIndex {
-    fn from(parent: Arc<Base>) -> BlogIndex {
-        BlogIndex {
+impl From<Arc<Base>> for Index {
+    fn from(parent: Arc<Base>) -> Index {
+        Index {
             _parent: parent,
             index: Vec::new(),
         }

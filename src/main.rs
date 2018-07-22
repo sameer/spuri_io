@@ -46,7 +46,7 @@ fn main() {
     });
 
     let base_arc = Arc::new(BASE);
-    let blog_index = blog::BlogIndex::new(base_arc.clone());
+    let blog_index = blog::Index::new(base_arc.clone());
     let code_art_gallery = code_art::Gallery::new(base_arc.clone());
 
     let serv = server::new(move || {
@@ -56,8 +56,8 @@ fn main() {
             App::with_state(blog_index.clone())
                 .middleware(middleware::Logger::default())
                 .prefix("/blog")
-                .resource("/", |r| r.with(blog::BlogIndex::get_index))
-                .resource("/{page}", |r| r.with(blog::BlogIndex::get_page))
+                .resource("/", |r| r.with(blog::Index::get_index))
+                .resource("/{page}", |r| r.with(blog::Index::get_page))
                 .boxed(),
             App::with_state(code_art_gallery.clone())
                 .middleware(middleware::Logger::default())
