@@ -26,6 +26,7 @@ use base::*;
 
 mod blog;
 mod code_art;
+mod err;
 mod header;
 mod static_pages;
 
@@ -101,7 +102,7 @@ fn main() {
                 .boxed(),
             App::with_state(base_arc.clone())
                 .middleware(middleware::Logger::default())
-                .resource("/", |r| r.f(static_pages::BaseIndex::get))
+                .resource("/", |r| r.f(static_pages::Index::get))
                 .resource("/about", |r| r.f(static_pages::About::get))
                 .boxed(),
         ]

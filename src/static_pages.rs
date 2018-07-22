@@ -27,28 +27,20 @@ impl About {
 
 #[derive(Template)]
 #[template(path = "index.html")]
-pub struct BaseIndex {
+pub struct Index {
     _parent: Arc<Base>,
 }
 
-impl BaseIndex {
+impl Index {
     pub fn get(req: HttpRequest<Arc<Base>>) -> impl Responder {
         HttpResponse::Ok()
             .set(cache_for_one_week())
             .set(ContentType::html())
             .body(
-                BaseIndex {
+                Index {
                     _parent: req.state().clone(),
                 }.render()
                     .unwrap(),
             )
     }
-}
-
-#[derive(Template)]
-#[template(path = "error.html")]
-pub struct Error {
-    pub _parent: Arc<Base>,
-    pub title: String,
-    pub msg: String,
 }

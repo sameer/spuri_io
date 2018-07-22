@@ -2,7 +2,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{HttpResponse, Path, Responder, State};
 use askama::Template;
 use base::*;
-use static_pages::Error;
+use err::NotFound;
 use std::sync::{Arc, RwLock};
 
 #[derive(Template)]
@@ -43,7 +43,7 @@ impl BlogIndex {
             })
             .unwrap_or_else(|| {
                 HttpResponse::NotFound().set(ContentType::html()).body(
-                    Error {
+                    NotFound {
                         _parent: state._parent.clone(),
                         title: "Blog Page Not Found".to_string(),
                         msg: "The blog page you requested was not found".to_string(),

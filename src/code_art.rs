@@ -3,9 +3,10 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
+use err::NotFound;
+use header::cache_forever;
 use image::{FilterType, GenericImage, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-use header::cache_forever;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
@@ -21,12 +22,7 @@ use std::time::Duration;
 // Sizes are all 16:9 of note (to future me) is the fact that 4K UHD/WQHD are not included; my code art images are never larger than FHD (yet), so
 // there is no reason to provide these sizes.
 type ImageSize = (u32, u32);
-const AVAILABLE_SIZES: [ImageSize; 4] = [
-    (1920, 1080),
-    (1280, 720),
-    (960, 540),
-    (640, 360),
-];
+const AVAILABLE_SIZES: [ImageSize; 4] = [(1920, 1080), (1280, 720), (960, 540), (640, 360)];
 
 #[derive(Template)]
 #[template(path = "code_art_gallery.html", escape = "none")]
@@ -35,26 +31,36 @@ pub struct Gallery {
     images: Vec<Image>,
 }
 
+const FOLDER_PATH: &str = "./files/code_art";
+type GalleryState = Arc<RwLock<Gallery>>;
 impl Gallery {
-    pub fn get_index(state: State<Arc<RwLock<Gallery>>>) -> impl Responder {
+    pub fn get_index(state: State<GalleryState>) -> impl Responder {
         HttpResponse::Ok()
             .set(ContentType::html())
             .body(state.read().unwrap().render().unwrap())
     }
 
     pub fn get_resizer(
-        (gallery_state, resizer_query): (State<Arc<RwLock<Gallery>>>, Query<Resize>),
+        (gallery_state, resizer_query): (State<GalleryState>, Query<Resize>),
     ) -> impl Responder {
         let size_tuple = (resizer_query.width, resizer_query.height);
         if AVAILABLE_SIZES.iter().any(|size| size == &size_tuple) {
+            let gallery_state = gallery_state.read().unwrap();
             gallery_state
-                .read()
-                .unwrap()
                 .images
                 .iter()
                 .find(|img| img.src == resizer_query.src)
                 .map_or_else(
-                    || HttpResponse::NotFound().finish(),
+                    || {
+                        HttpResponse::NotFound().set(ContentType::html()).body(
+                            NotFound {
+                                _parent: gallery_state._parent.clone(),
+                                title: "Blog Page Not Found".to_string(),
+                                msg: "The blog page you requested was not found".to_string(),
+                            }.render()
+                                .unwrap(),
+                        )
+                    },
                     |img| {
                         img.size_to_image_bytes.get(&size_tuple).map_or_else(
                             || HttpResponse::InternalServerError().finish(),
@@ -117,10 +123,72 @@ impl Gallery {
         };
     }
 
-    pub fn new(parent: Arc<Base>) -> Arc<RwLock<Gallery>> {
+    pub fn new(parent: Arc<Base>) -> GalleryState {
         let gallery = Arc::new(RwLock::new(Gallery::from(parent)));
-        spawn_gallery_updater(gallery.clone());
+        Gallery::spawn_updater(gallery.clone());
         gallery
+    }
+
+    fn spawn_updater(gallery_state: GalleryState) {
+        thread::spawn(move || {
+            gallery_state.write().unwrap().initialize();
+
+            let (tx, notify_event_receiver) = channel();
+            let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
+            match watcher.watch(FOLDER_PATH, RecursiveMode::Recursive) {
+                Ok(()) => {}
+                Err(err) => {
+                    error!("Could not watch code art directory: {}", err);
+                    return;
+                }
+            }
+            loop {
+                match notify_event_receiver.recv() {
+                    Ok(event) => match event {
+                        DebouncedEvent::Rename(original_path, renamed_path) => {
+                            match Image::try_from(&renamed_path) {
+                                Ok(renamed_img) => {
+                                    let mut state = gallery_state.write().unwrap();
+                                    state
+                                        .remove_image(&original_path)
+                                        .and_then(|original_img| {
+                                            debug!(
+                                                "Handling move from {:?} to {:?}",
+                                                original_img, renamed_img
+                                            );
+                                            Ok(original_img)
+                                        })
+                                        .unwrap();
+                                    state.images.push(renamed_img);
+                                }
+                                Err(err) => warn!("Couldn't derive moved image by path: {}", err),
+                            }
+                        }
+                        DebouncedEvent::Create(created_path) => {
+                            match Image::try_from(&created_path) {
+                                Ok(created_img) => {
+                                    debug!("Handling added {:?}", created_img);
+                                    gallery_state.write().unwrap().images.push(created_img);
+                                }
+                                Err(err) => warn!("Couldn't derive new image by path: {}", err),
+                            }
+                        }
+                        DebouncedEvent::Remove(removed_path) => {
+                            let mut state = gallery_state.write().unwrap();
+                            state
+                                .remove_image(&removed_path)
+                                .and_then(|img| {
+                                    debug!("Handling removed {:?}", img);
+                                    Ok(img)
+                                })
+                                .unwrap();
+                        }
+                        _ => {}
+                    },
+                    Err(err) => error!("Encountered error in notify event loop {}", err),
+                }
+            }
+        });
     }
 }
 
@@ -138,67 +206,6 @@ pub struct Resize {
     width: u32,
     height: u32,
     src: String,
-}
-
-const FOLDER_PATH: &str = "./files/code_art";
-fn spawn_gallery_updater(gallery_state: Arc<RwLock<Gallery>>) {
-    thread::spawn(move || {
-        gallery_state.write().unwrap().initialize();
-
-        let (tx, notify_event_receiver) = channel();
-        let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
-        match watcher.watch(FOLDER_PATH, RecursiveMode::Recursive) {
-            Ok(()) => {}
-            Err(err) => {
-                error!("Could not watch code art directory: {}", err);
-                return;
-            }
-        }
-        loop {
-            match notify_event_receiver.recv() {
-                Ok(event) => match event {
-                    DebouncedEvent::Rename(original_path, renamed_path) => {
-                        match Image::try_from(&renamed_path) {
-                            Ok(renamed_img) => {
-                                let mut state = gallery_state.write().unwrap();
-                                state
-                                    .remove_image(&original_path)
-                                    .and_then(|original_img| {
-                                        debug!(
-                                            "Handling move from {:?} to {:?}",
-                                            original_img, renamed_img
-                                        );
-                                        Ok(original_img)
-                                    })
-                                    .unwrap();
-                                state.images.push(renamed_img);
-                            }
-                            Err(err) => warn!("Couldn't derive moved image by path: {}", err),
-                        }
-                    }
-                    DebouncedEvent::Create(created_path) => match Image::try_from(&created_path) {
-                        Ok(created_img) => {
-                            debug!("Handling added {:?}", created_img);
-                            gallery_state.write().unwrap().images.push(created_img);
-                        }
-                        Err(err) => warn!("Couldn't derive new image by path: {}", err),
-                    },
-                    DebouncedEvent::Remove(removed_path) => {
-                        let mut state = gallery_state.write().unwrap();
-                        state
-                            .remove_image(&removed_path)
-                            .and_then(|img| {
-                                debug!("Handling removed {:?}", img);
-                                Ok(img)
-                            })
-                            .unwrap();
-                    }
-                    _ => {}
-                },
-                Err(err) => error!("Encountered error in notify event loop {}", err),
-            }
-        }
-    });
 }
 
 struct Image {
