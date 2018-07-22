@@ -1,5 +1,31 @@
 use askama::Template;
 
+pub const BASE: Base = Base {
+    css_file_hash: include_str!("css_file_hash"),
+    nav_items: [
+        NavItem {
+            link: "/code_art",
+            name: "Code Art",
+            new_page: false,
+        },
+        NavItem {
+            link: "/blog",
+            name: "Blog",
+            new_page: false,
+        },
+        NavItem {
+            link: "https://github.com/sameer",
+            name: "GitHub",
+            new_page: false,
+        },
+        NavItem {
+            link: "/about",
+            name: "About",
+            new_page: false,
+        },
+    ],
+};
+
 #[derive(Clone)]
 pub struct NavItem {
     pub link: &'static str,
