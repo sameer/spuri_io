@@ -12,10 +12,11 @@ extern crate env_logger;
 extern crate notify;
 #[macro_use]
 extern crate serde_derive;
-extern crate image;
-extern crate serde_urlencoded;
 extern crate ammonia;
+extern crate chrono;
+extern crate image;
 extern crate pulldown_cmark;
+extern crate serde_urlencoded;
 
 use actix_web::http::header::IntoHeaderValue;
 use actix_web::{fs, http, middleware, server, App};
@@ -48,7 +49,7 @@ fn main() {
     });
 
     let base_arc = Arc::new(BASE);
-    let blog_index = blog::Index::new(base_arc.clone());
+    let blog_index = blog::Blog::new(base_arc.clone());
     let code_art_gallery = code_art::Gallery::new(base_arc.clone());
 
     let serv = server::new(move || {
@@ -58,8 +59,8 @@ fn main() {
             App::with_state(blog_index.clone())
                 .middleware(middleware::Logger::default())
                 .prefix("/blog")
-                .resource("/", |r| r.with(blog::Index::get_index))
-                .resource("/{page}", |r| r.with(blog::Index::get_page))
+                .resource("/", |r| r.with(blog::Blog::get_index))
+                .resource("/{page}", |r| r.with(blog::Blog::get_post))
                 .boxed(),
             App::with_state(code_art_gallery.clone())
                 .middleware(middleware::Logger::default())

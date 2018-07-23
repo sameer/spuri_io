@@ -18,6 +18,7 @@ serde_derive = "^1.0"
 serde_urlencoded = "^0.5.2"
 pulldown-cmark = { version = "^0.1.2", default-features = false }
 ammonia = "^1.2.0"
+chrono = "^0.4"
 
 [build-dependencies]
 askama = "^0.6.4"

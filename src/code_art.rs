@@ -3,7 +3,7 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
-use err::NotFound;
+use err;
 use header::cache_forever;
 use image::{FilterType, GenericImage, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -53,7 +53,7 @@ impl Gallery {
                 .map_or_else(
                     || {
                         HttpResponse::NotFound().set(ContentType::html()).body(
-                            NotFound {
+                            err::NotFound {
                                 _parent: gallery_state._parent.clone(),
                                 title: "Blog Page Not Found".to_string(),
                                 msg: "The blog page you requested was not found".to_string(),
@@ -338,9 +338,7 @@ impl<'a> TryFrom<&'a PathBuf> for Image {
             }),
             (Err(err), _, _, _) => Err(err),
             (Ok(_), _, _, Err(err)) => Err(Box::new(err)),
-            _ => Err(From::from(
-                format!("Path contained invalid unicode characters or no file name could be identified: {:?}", path.as_os_str()),
-            )),
+            _ => Err(err::unicode_error(&path)),
         }
     }
 }

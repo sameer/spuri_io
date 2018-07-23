@@ -26,14 +26,14 @@ pub const BASE: Base = Base {
     ],
 };
 
-#[derive(Clone)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct NavItem {
     pub link: &'static str,
     pub name: &'static str,
     pub new_page: bool,
 }
 
-#[derive(Template, Clone)]
+#[derive(Template, Clone, Hash, Eq, PartialEq, Debug)]
 #[template(path = "base.html")]
 pub struct Base {
     pub nav_items: [NavItem; 4],

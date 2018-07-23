@@ -4,3 +4,4 @@ src/css_file_hash
 *.pem
 Cargo.lock
 files/code_art/*
+blog/
