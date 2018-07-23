@@ -14,6 +14,7 @@ cache:
   cargo: true
   directories:
   - $HOME/openssl-1.1.0h/
+  timeout: 360
 env:
   global:
   - OPENSSL_DIR=$HOME/openssl-1.1.0h
