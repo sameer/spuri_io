@@ -7,8 +7,11 @@ Personal website translated from Go to Rust
 - [x] Implement About
 - [x] Implement NavItems
 - [x] Implement CSS File Integrity hash
-- [ ] Implement BlogIndex (next task)
+- [x] Implement BlogIndex
 - [ ] Implement BlogPage (next task)
+  - [ ] Find way to maintain metadata for the markdown file
+  - [ ] Implement author field
+  - [ ] Handle timestamps better so the ctime field exists
 - [x] Implement CodeArtGallery
 - [x] CodeArt image resizing
 - [x] State handling
