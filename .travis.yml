@@ -6,9 +6,7 @@ matrix:
     - rust: nightly
 script:
   - ./test/build_openssl.sh
-  - cargo +nightly install --force clippy
   - cargo update
-  - cargo clippy
   - cargo build -v
 cache:
   cargo: true
