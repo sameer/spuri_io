@@ -16,4 +16,4 @@ tar xzf /tmp/build/openssl.tar.gz && cd openssl-1.1.0h
 make -j$(nproc)
 make install
 rm -r /tmp/build/
-cd ~/sameer/spuri_io
+cd ~/build/sameer/spuri_io
