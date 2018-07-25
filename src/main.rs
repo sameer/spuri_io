@@ -26,11 +26,11 @@ use std::sync::Arc;
 
 mod base;
 use base::*;
-
 mod blog;
 mod code_art;
 mod err;
 mod header;
+mod robots;
 mod static_pages;
 
 const DEV_BIND_ADDRESS: &str = "127.0.0.1:8080";
@@ -81,6 +81,7 @@ fn main() {
                 .middleware(middleware::Logger::default())
                 .resource("/", |r| r.f(static_pages::Index::get))
                 .resource("/about", |r| r.f(static_pages::About::get))
+                .resource("/robots.txt", |r| r.f(robots::get_robots_txt))
                 .boxed(),
         ]
     });
