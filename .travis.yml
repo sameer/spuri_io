@@ -12,10 +12,10 @@ script:
 cache:
   cargo: true
   directories:
-  - $HOME/openssl-1.1.0h/
+  - $HOME/openssl/
   timeout: 360
 env:
   global:
-  - OPENSSL_DIR=$HOME/openssl-1.1.0h
+  - OPENSSL_DIR=$HOME/openssl/
 before_cache:
   - chmod -R a+r $HOME/.cargo
