@@ -7,7 +7,6 @@ use chrono::DateTime;
 use err;
 use pulldown_cmark::Parser;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::env;
 use std::error;
 use std::fs;
@@ -156,11 +155,8 @@ impl Post {
                 ammonia::clean(&*unsafe_html_text)
             })
     }
-}
 
-impl<'a> TryFrom<(Arc<Base>, &'a PathBuf)> for Post {
-    type Error = Box<error::Error>;
-    fn try_from((base, path): (Arc<Base>, &'a PathBuf)) -> Result<Self, Self::Error> {
+    fn try_from<'a>((base, path): (Arc<Base>, &'a PathBuf)) -> Result<Self, Box<error::Error>> {
         match (
             Post::path_to_title(&path),
             Post::path_to_last_modified(&path),

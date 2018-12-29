@@ -1,4 +1,3 @@
-#![feature(try_from)]
 extern crate actix;
 extern crate actix_web;
 #[macro_use]

@@ -8,7 +8,6 @@ use header::cache_forever;
 use image::{FilterType, GenericImageView, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::env;
 use std::error;
 use std::fmt;
@@ -317,11 +316,8 @@ impl Image {
                 .map(|_| size_to_image_bytes)
         })
     }
-}
 
-impl<'a> TryFrom<&'a PathBuf> for Image {
-    type Error = Box<error::Error>;
-    fn try_from(path: &PathBuf) -> Result<Self, Self::Error> {
+    fn try_from(path: &PathBuf) -> Result<Self, Box<error::Error>> {
         match (
             Image::path_to_src(path),
             Image::path_to_name(path),
