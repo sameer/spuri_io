@@ -8,6 +8,7 @@ script:
   - ./test/build_openssl.sh
   - cargo update
   - cargo build -v
+  - cargo test
 cache:
   cargo: true
   directories:
