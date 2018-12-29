@@ -1,5 +1,4 @@
 #![feature(try_from)]
-#![feature(extern_prelude)] // Avoid polluting code_art module with image::open
 extern crate actix;
 extern crate actix_web;
 #[macro_use]
@@ -75,7 +74,7 @@ fn main() {
                     header::cache_for_one_day().try_into().unwrap(),
                 ))
                 .prefix("/files")
-                .handler("/", fs::StaticFiles::new("./files"))
+                .handler("/", fs::StaticFiles::new("./files").unwrap())
                 .boxed(),
             App::with_state(base_arc.clone())
                 .middleware(middleware::Logger::default())

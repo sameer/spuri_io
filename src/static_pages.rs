@@ -12,7 +12,7 @@ pub struct About {
 }
 
 impl About {
-    pub fn get(req: HttpRequest<Arc<Base>>) -> impl Responder {
+    pub fn get(req: &HttpRequest<Arc<Base>>) -> impl Responder {
         HttpResponse::Ok()
             .set(cache_for_one_week())
             .set(ContentType::html())
@@ -32,7 +32,7 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn get(req: HttpRequest<Arc<Base>>) -> impl Responder {
+    pub fn get(req: &HttpRequest<Arc<Base>>) -> impl Responder {
         HttpResponse::Ok()
             .set(cache_for_one_week())
             .set(ContentType::html())

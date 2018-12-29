@@ -5,7 +5,7 @@ use askama::Template;
 use base::*;
 use err;
 use header::cache_forever;
-use image::{FilterType, GenericImage, ImageOutputFormat, ImageResult};
+use image::{FilterType, GenericImageView, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -299,7 +299,7 @@ impl Image {
                 .iter()
                 .try_for_each(|size| {
                     let resized_dynamic_image =
-                        if &(dynamic_image.width(), dynamic_image.height()) == size {
+                        if dynamic_image.dimensions() == *size {
                             dynamic_image.clone()
                         } else {
                             dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest)

@@ -6,6 +6,6 @@ use std::sync::Arc;
 const ROBOTS_TXT: &str = "User-agent: *
 Disallow: /files";
 
-pub fn get_robots_txt(_state: HttpRequest<Arc<Base>>) -> impl Responder {
+pub fn get_robots_txt(_state: &HttpRequest<Arc<Base>>) -> impl Responder {
     HttpResponse::Ok().set(ContentType::plaintext()).body(ROBOTS_TXT)
 }
