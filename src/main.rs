@@ -17,6 +17,7 @@ extern crate pulldown_cmark;
 extern crate rocket_contrib;
 extern crate serde_urlencoded;
 
+use rocket::Config;
 use std::env;
 use std::sync::Arc;
 
@@ -28,16 +29,26 @@ mod err;
 mod robots;
 mod static_pages;
 
+/// Configure Rocket to serve on the port requested by Heroku.
+fn configure() -> Config {
+    let mut config = Config::active().expect("could not load configuration");
+    if let Ok(port_str) = env::var("PORT") {
+        let port = port_str.parse().expect("could not parse PORT");
+        config.set_port(port);
+    }
+    config
+}
+
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info,spuri_io=debug,actix_web=info");
+        env::set_var("RUST_LOG", "info,spuri_io=debug");
     }
     env_logger::init();
     info!("Starting...");
 
     let base_arc = Arc::new(BASE);
 
-    rocket::ignite()
+    rocket::custom(configure())
         .manage(BASE)
         .manage(blog::Blog::new(base_arc.clone()))
         .manage(code_art::Gallery::new(base_arc.clone()))
