@@ -1,11 +1,10 @@
-use actix_web::http::header::ContentType;
-use actix_web::{HttpResponse, Path, Responder, State};
 use askama::Template;
 use base::*;
 use chrono::offset::Utc;
 use chrono::DateTime;
 use err;
 use pulldown_cmark::Parser;
+use rocket::{State, http::Status};
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -17,45 +16,32 @@ use std::sync::{Arc, RwLock};
 
 const INDEX_MAX_SIZE: usize = 10;
 
-#[derive(Template)]
-#[template(path = "blog_index.html")]
+#[derive(Template, Clone)]
+#[template(path = "blog_index.html", print="code")]
 pub struct Blog {
     _parent: Arc<Base>,
-    index: Vec<Box<Post>>,
-    posts_by_title: HashMap<String, Box<Post>>,
+    index: Vec<Post>,
+    posts_by_title: HashMap<String, Post>,
 }
 
 const FOLDER_PATH: &str = "./blog";
-type BlogState = Arc<RwLock<Blog>>;
+
+#[get("/")]
+pub fn get_index(state: State<BlogState>) -> Blog {
+    state.inner().read().unwrap().clone()
+}
+
+#[get("/<post>")]
+pub fn get_post(state: State<BlogState>, post: String) -> Result<Post, Status> {
+    state.read().unwrap()
+        .posts_by_title
+        .get(&post)
+        .map(|post| post.clone())
+        .ok_or(Status::NotFound)
+}
+
+type BlogState = RwLock<Blog>;
 impl Blog {
-    pub fn get_index(state: State<BlogState>) -> impl Responder {
-        HttpResponse::Ok()
-            .set(ContentType::html())
-            .body(state.read().unwrap().render().unwrap())
-    }
-
-    pub fn get_post((state, path): (State<BlogState>, Path<String>)) -> impl Responder {
-        let (state, path) = (state.read().unwrap(), path.into_inner());
-        state
-            .posts_by_title
-            .get(&path)
-            .map(|post| {
-                HttpResponse::Ok()
-                    .set(ContentType::html())
-                    .body(post.render().unwrap())
-            })
-            .unwrap_or_else(|| {
-                HttpResponse::NotFound().set(ContentType::html()).body(
-                    err::NotFound {
-                        _parent: state._parent.clone(),
-                        title: "Blog Page Not Found".to_string(),
-                        msg: "The blog page you requested was not found".to_string(),
-                    }.render()
-                        .unwrap(),
-                )
-            })
-    }
-
     fn initialize(&mut self) {
         match env::current_dir().and_then(|cwd_path_buf| {
             let gallery_prefix = cwd_path_buf.join(PathBuf::from(FOLDER_PATH));
@@ -70,10 +56,9 @@ impl Blog {
                         Ok(path) => match Post::try_from((self._parent.clone(), &path)) {
                             Ok(post) => {
                                 debug!("Adding {}", post.title);
-                                let boxed_post: Box<Post> = Box::new(post);
                                 self.posts_by_title
-                                    .insert(boxed_post.title.clone(), boxed_post.clone());
-                                self.index.push(boxed_post.clone());
+                                    .insert(post.title.clone(), post.clone());
+                                self.index.push(post.clone());
                             }
                             Err(err) => warn!("Couldn't derive new post by path: {}", err),
                         },
@@ -94,7 +79,7 @@ impl Blog {
     pub fn new(parent: Arc<Base>) -> BlogState {
         let mut blog = Blog::from(parent);
         blog.initialize();
-        Arc::new(RwLock::new(blog))
+        RwLock::new(blog)
     }
 }
 
@@ -110,7 +95,7 @@ impl From<Arc<Base>> for Blog {
 
 #[derive(Template, Hash, Eq, PartialEq, Debug, Clone)]
 #[template(path = "blog_page.html", escape = "none")]
-struct Post {
+pub struct Post {
     _parent: Arc<Base>,
     title: String,
     last_modified: String,

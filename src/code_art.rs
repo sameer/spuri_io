@@ -1,17 +1,16 @@
-use actix_web::http::header::ContentType;
-use actix_web::http::StatusCode;
-use actix_web::{HttpResponse, Query, Responder, State};
 use askama::Template;
 use base::*;
 use err;
-use header::cache_forever;
 use image::{FilterType, GenericImageView, ImageOutputFormat, ImageResult};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use rocket::State;
+use rocket::{http::ContentType, http::Status, response::Result as RocketResult, Response};
 use std::collections::HashMap;
 use std::env;
 use std::error;
 use std::fmt;
 use std::fs;
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
@@ -23,63 +22,54 @@ use std::time::Duration;
 type ImageSize = (u32, u32);
 const AVAILABLE_SIZES: [ImageSize; 4] = [(1920, 1080), (1280, 720), (960, 540), (640, 360)];
 
-#[derive(Template)]
+#[derive(Template, Clone)]
 #[template(path = "code_art_gallery.html", escape = "none")]
 pub struct Gallery {
     _parent: Arc<Base>,
     images: Vec<Image>,
 }
 
+#[get("/")]
+pub fn get_index(state: State<GalleryState>) -> Gallery {
+    state.read().unwrap().clone()
+}
+
+#[get("/resizer?<width>&<height>&<src>")]
+pub fn get_resizer(
+    gallery_state: State<GalleryState>,
+    width: u32,
+    height: u32,
+    src: String,
+) -> RocketResult {
+    let size_tuple = (width, height);
+    if AVAILABLE_SIZES.iter().any(|size| size == &size_tuple) {
+        let gallery_state = gallery_state.read().unwrap();
+        gallery_state
+            .images
+            .iter()
+            .find(|img| img.src == src)
+            .map_or(Err(Status::NotFound), |img| {
+                img.size_to_image_bytes.get(&size_tuple).map_or(
+                    Err(Status::InternalServerError),
+                    |resized_image_bytes| {
+                        Ok(Response::build()
+                            .header(ContentType::PNG)
+                            .sized_body(Cursor::new(resized_image_bytes.clone()))
+                            .finalize())
+                    },
+                )
+            })
+    }
+    // This is the ideal response code here. The query is valid and well formed but it will not be processed because it doesn't match the
+    // expectation that it should be one of AVAILABLE_SIZES. If this happens, in all likelihood, someone is just messing around with the query.
+    else {
+        Err(Status::UnprocessableEntity)
+    }
+}
+
 const FOLDER_PATH: &str = "./files/code_art";
 type GalleryState = Arc<RwLock<Gallery>>;
 impl Gallery {
-    pub fn get_index(state: State<GalleryState>) -> impl Responder {
-        HttpResponse::Ok()
-            .set(ContentType::html())
-            .body(state.read().unwrap().render().unwrap())
-    }
-
-    pub fn get_resizer(
-        (gallery_state, resizer_query): (State<GalleryState>, Query<Resize>),
-    ) -> impl Responder {
-        let size_tuple = (resizer_query.width, resizer_query.height);
-        if AVAILABLE_SIZES.iter().any(|size| size == &size_tuple) {
-            let gallery_state = gallery_state.read().unwrap();
-            gallery_state
-                .images
-                .iter()
-                .find(|img| img.src == resizer_query.src)
-                .map_or_else(
-                    || {
-                        HttpResponse::NotFound().set(ContentType::html()).body(
-                            err::NotFound {
-                                _parent: gallery_state._parent.clone(),
-                                title: "Blog Page Not Found".to_string(),
-                                msg: "The blog page you requested was not found".to_string(),
-                            }.render()
-                                .unwrap(),
-                        )
-                    },
-                    |img| {
-                        img.size_to_image_bytes.get(&size_tuple).map_or_else(
-                            || HttpResponse::InternalServerError().finish(),
-                            |resized_image_bytes| {
-                                HttpResponse::Ok()
-                                    .set(cache_forever())
-                                    .set(ContentType::png())
-                                    .body(resized_image_bytes)
-                            },
-                        )
-                    },
-                )
-        }
-        // This is the ideal response code here. The query is valid and well formed but it will not be processed because it doesn't match the
-        // expectation that it should be one of AVAILABLE_SIZES. If this happens, in all likelihood, someone is just messing around with the query.
-        else {
-            HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).finish()
-        }
-    }
-
     fn remove_image(&mut self, path_to_remove: &PathBuf) -> Result<Image, Box<error::Error>> {
         Image::path_to_src(&path_to_remove).and_then(|src_to_remove| {
             self.images
@@ -207,13 +197,14 @@ pub struct Resize {
     src: String,
 }
 
+#[derive(Clone)]
 struct Image {
     name: String,
     href: String,
     srcset: String,
     src: String,
     desc: String,
-    size_to_image_bytes: HashMap<ImageSize, Arc<Vec<u8>>>,
+    size_to_image_bytes: HashMap<ImageSize, Vec<u8>>,
 }
 
 // TODO: this adds overhead that I feel could be avoided if a wrapper was provided for the size_to_image_bytes field. The wrapper itself would
@@ -289,27 +280,24 @@ impl Image {
         Some(String::new())
     }
 
-    fn path_to_resized_image_bytes(
-        path: &PathBuf,
-    ) -> ImageResult<HashMap<ImageSize, Arc<Vec<u8>>>> {
+    fn path_to_resized_image_bytes(path: &PathBuf) -> ImageResult<HashMap<ImageSize, Vec<u8>>> {
         image::open(path).and_then(|dynamic_image| {
             let mut size_to_image_bytes = HashMap::new();
             AVAILABLE_SIZES
                 .iter()
                 .try_for_each(|size| {
-                    let resized_dynamic_image =
-                        if dynamic_image.dimensions() == *size {
-                            dynamic_image.clone()
-                        } else {
-                            dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest)
-                        };
+                    let resized_dynamic_image = if dynamic_image.dimensions() == *size {
+                        dynamic_image.clone()
+                    } else {
+                        dynamic_image.resize_exact(size.0, size.1, FilterType::Nearest)
+                    };
                     let mut resized_image_bytes = Vec::new();
                     // If this fails, indicates that png_codec is unavailable, in which case
                     let write_result = resized_dynamic_image
                         .write_to(&mut resized_image_bytes, ImageOutputFormat::PNG);
 
                     if write_result.is_ok() {
-                        size_to_image_bytes.insert(size.clone(), Arc::new(resized_image_bytes));
+                        size_to_image_bytes.insert(size.clone(), resized_image_bytes);
                     }
                     write_result
                 })

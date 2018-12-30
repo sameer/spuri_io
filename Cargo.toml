@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["Sameer <purisame@spuri.io>"]
 
 [dependencies]
-actix = "^0.7"
-actix-web = { version="^0.7", features=["alpn"]}
-askama = { git = 'https://github.com/djc/askama' }
+rocket = "^0.4"
+rocket_contrib = "^0.4"
+askama = { git = 'https://github.com/djc/askama', features = ['with-rocket'] }
 openssl = "^0.10"
 env_logger = "^0.6"
 log = "^0.4"
@@ -21,6 +21,6 @@ ammonia = "^2.0"
 chrono = "^0.4"
 
 [build-dependencies]
-askama = { git = 'https://github.com/djc/askama' }
+askama = { git = 'https://github.com/djc/askama', features = ['with-rocket'] }
 openssl = "^0.10"
 base64 = "^0.10"

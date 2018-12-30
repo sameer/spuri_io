@@ -1,46 +1,29 @@
-use actix_web::http::header::ContentType;
-use actix_web::{HttpRequest, HttpResponse, Responder};
 use askama::Template;
 use base::*;
-use header::cache_for_one_week;
-use std::sync::Arc;
+use rocket::State;
 
 #[derive(Template)]
 #[template(path = "about.html")]
 pub struct About {
-    _parent: Arc<Base>,
+    _parent: Base,
 }
 
-impl About {
-    pub fn get(req: &HttpRequest<Arc<Base>>) -> impl Responder {
-        HttpResponse::Ok()
-            .set(cache_for_one_week())
-            .set(ContentType::html())
-            .body(
-                About {
-                    _parent: req.state().clone(),
-                }.render()
-                    .unwrap(),
-            )
+#[get("/about")]
+pub fn get_about(state: State<Base>) -> About {
+    About {
+        _parent: state.inner().clone(),
     }
 }
 
 #[derive(Template)]
 #[template(path = "index.html")]
 pub struct Index {
-    _parent: Arc<Base>,
+    _parent: Base,
 }
 
-impl Index {
-    pub fn get(req: &HttpRequest<Arc<Base>>) -> impl Responder {
-        HttpResponse::Ok()
-            .set(cache_for_one_week())
-            .set(ContentType::html())
-            .body(
-                Index {
-                    _parent: req.state().clone(),
-                }.render()
-                    .unwrap(),
-            )
+#[get("/")]
+pub fn get_index(req: State<Base>) -> Index {
+    Index {
+        _parent: req.inner().clone(),
     }
 }
