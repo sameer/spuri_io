@@ -24,19 +24,28 @@ pub fn get_audio(id: String) -> Result<Stream<reqwest::Response>, Status> {
         .get("https://youtube.com/get_video_info")
         .query(&[("video_id", id)])
         .send()
-        .map_err(|_| Status::InternalServerError)?;
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?;
     if res.status() != reqwest::StatusCode::OK {
         return Err(Status::from_code(res.status().as_u16()).unwrap_or(Status::InternalServerError));
     }
-    let body_string = res.text().map_err(|_| Status::InternalServerError)?;
+    let body_string = res.text().map_err(|err| {
+        error!("{}", err);
+        Status::InternalServerError
+    })?;
     let video_info: GetVideoInfo = from_str(body_string.as_str()).map_err(|err| {
-        info!("{}", err);
+        error!("{}", err);
         Status::InternalServerError
     })?;
 
     let mut fmt_stream_map: Vec<FmtStreamMap> = Vec::new();
     for url in video_info.url_encoded_fmt_stream_map.split(',') {
-        fmt_stream_map.push(from_str(url).map_err(|err| Status::InternalServerError)?);
+        fmt_stream_map.push(from_str(url).map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?);
     }
 
     info!("{:?}", fmt_stream_map);
@@ -50,12 +59,18 @@ pub fn get_audio(id: String) -> Result<Stream<reqwest::Response>, Status> {
                 .arg("1")
                 .arg("http://localhost:8080/out.mp3")
                 .spawn()
-                .map_err(|_| Status::InternalServerError)?;
+                .map_err(|err| {
+                    error!("{}", err);
+                    Status::InternalServerError
+                })?;
             std::thread::sleep(std::time::Duration::from_secs(1));
             let res = client
                 .get("http://localhost:8080/out.mp3")
                 .send()
-                .map_err(|_| Status::InternalServerError)?;
+                .map_err(|err| {
+                    error!("{}", err);
+                    Status::InternalServerError
+                })?;
             return Ok(Stream::from(res));
         }
     }
