@@ -19,6 +19,8 @@ serde_urlencoded = "^0.5"
 pulldown-cmark = { version = "^0.2", default-features = false }
 ammonia = "^2.0"
 chrono = "^0.4"
+reqwest = "0.9"
+url = "^1.7.2"
 
 [build-dependencies]
 askama = { git = 'https://github.com/djc/askama', features = ['with-rocket'] }

@@ -16,6 +16,8 @@ extern crate image;
 extern crate pulldown_cmark;
 extern crate rocket_contrib;
 extern crate serde_urlencoded;
+extern crate reqwest;
+extern crate url;
 
 use rocket::Config;
 use std::env;
@@ -28,6 +30,7 @@ mod code_art;
 mod err;
 mod robots;
 mod static_pages;
+mod youtube;
 
 /// Configure Rocket to serve on the port requested by Heroku.
 fn configure() -> Config {
@@ -64,6 +67,7 @@ fn main() {
                 rocket_contrib::serve::Options::None,
             ),
         )
+        .mount("/youtube", routes![youtube::get_audio])
         .mount(
             "/",
             routes![

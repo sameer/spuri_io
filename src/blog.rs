@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 const INDEX_MAX_SIZE: usize = 10;
 
 #[derive(Template, Clone)]
-#[template(path = "blog_index.html", print="code")]
+#[template(path = "blog_index.html")]
 pub struct Blog {
     _parent: Arc<Base>,
     index: Vec<Post>,
