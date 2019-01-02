@@ -1,5 +1,7 @@
 use rocket::{http::Status, response::Stream};
 use serde_urlencoded::from_str;
+use std::io::Read;
+use std::process::Child;
 
 use std::process::Command;
 
@@ -17,8 +19,29 @@ struct GetVideoInfo {
     url_encoded_fmt_stream_map: String,
 }
 
+pub struct ChildKiller(Child);
+
+impl Drop for ChildKiller {
+    fn drop(&mut self) {
+        self.0.kill();
+    }
+}
+
+impl Read for ChildKiller {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let stdout = &mut self.0.stdout;
+        stdout.as_mut().map_or(
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Stdout was unavailable",
+            )),
+            |std| std.read(buf),
+        )
+    }
+}
+
 #[get("/audio/<id>")]
-pub fn get_audio(id: String) -> Result<Stream<reqwest::Response>, Status> {
+pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
     let client = reqwest::Client::new();
     let mut res = client
         .get("https://youtube.com/get_video_info")
@@ -52,26 +75,21 @@ pub fn get_audio(id: String) -> Result<Stream<reqwest::Response>, Status> {
 
     for fmt_stream in fmt_stream_map {
         if fmt_stream.quality == "hd720" {
-            Command::new("ffmpeg")
+            let child = Command::new("ffmpeg")
                 .arg("-i")
                 .arg(fmt_stream.url)
-                .arg("-listen")
-                .arg("1")
-                .arg("http://localhost:8080/out.mp3")
+                .arg("-f")
+                .arg("mp3")
+                .arg("pipe:1")
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .stdin(std::process::Stdio::null())
                 .spawn()
                 .map_err(|err| {
                     error!("{}", err);
                     Status::InternalServerError
                 })?;
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            let res = client
-                .get("http://localhost:8080/out.mp3")
-                .send()
-                .map_err(|err| {
-                    error!("{}", err);
-                    Status::InternalServerError
-                })?;
-            return Ok(Stream::from(res));
+            return Ok(Stream::from(ChildKiller(child)));
         }
     }
 
