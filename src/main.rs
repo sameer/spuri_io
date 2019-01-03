@@ -1,4 +1,5 @@
 #![feature(proc_macro_hygiene, decl_macro)]
+#![feature(type_alias_enum_variants)]
 #[macro_use]
 extern crate rocket;
 extern crate askama;
@@ -14,10 +15,13 @@ extern crate ammonia;
 extern crate chrono;
 extern crate image;
 extern crate pulldown_cmark;
+extern crate regex;
+extern crate reqwest;
 extern crate rocket_contrib;
 extern crate serde_urlencoded;
-extern crate reqwest;
 extern crate url;
+#[macro_use]
+extern crate lazy_static;
 
 use rocket::Config;
 use std::env;

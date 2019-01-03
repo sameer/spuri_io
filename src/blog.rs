@@ -4,7 +4,7 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use err;
 use pulldown_cmark::Parser;
-use rocket::{State, http::Status};
+use rocket::{http::Status, State};
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -33,7 +33,9 @@ pub fn get_index(state: State<BlogState>) -> Blog {
 
 #[get("/<post>")]
 pub fn get_post(state: State<BlogState>, post: String) -> Result<Post, Status> {
-    state.read().unwrap()
+    state
+        .read()
+        .unwrap()
         .posts_by_title
         .get(&post)
         .map(|post| post.clone())
@@ -56,8 +58,7 @@ impl Blog {
                         Ok(path) => match Post::try_from((self._parent.clone(), &path)) {
                             Ok(post) => {
                                 debug!("Adding {}", post.title);
-                                self.posts_by_title
-                                    .insert(post.title.clone(), post.clone());
+                                self.posts_by_title.insert(post.title.clone(), post.clone());
                                 self.index.push(post.clone());
                             }
                             Err(err) => warn!("Couldn't derive new post by path: {}", err),
