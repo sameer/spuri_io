@@ -30,7 +30,7 @@ pub struct ChildKiller(Child);
 
 impl Drop for ChildKiller {
     fn drop(&mut self) {
-        self.0.kill();
+        self.0.kill().unwrap();
     }
 }
 
@@ -56,17 +56,17 @@ mod xtract {
         static ref SIGNATURE_FUNCTION_NAME_REGEXES: Vec<Regex> = vec![
             // unsupported due to lack of backreferences
             // Regex::new(r#"(["'])signature\1\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
+            Regex::new(r#"yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*c\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
+            Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"\.sig\|\|(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*c\s*&&\s*d\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
-            Regex::new(r#"yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*c\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
-            Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap()
         ];
-        static ref SIGNATURE_TRANSFORM_FUNCTION_NAME_REGEX: Regex = Regex::new(r#"(\w+?)\."#).unwrap();
+        static ref SIGNATURE_TRANSFORM_FUNCTION_NAME_REGEX: Regex = Regex::new(r#"(.+?)\."#).unwrap();
 
         static ref FUNCTION_REGEX: Regex = RegexBuilder::new(r#"(?:([.A-Za-z0-9]+)\s*?:function\((.+?)\)\{(.*?)\}(?:,|\s)*?)"#).multi_line(true).build().unwrap();
-        static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r#"([.A-Za-z0-9]+)\((.*?)\);"#).unwrap();
+        static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r#"([.A-Za-z0-9$_]+)\((.*?)\);"#).unwrap();
     }
 
     pub fn sts(base_js: &str) -> Option<&str> {
@@ -96,7 +96,7 @@ mod xtract {
         base_js: &'a str,
         function_name: &'a str,
     ) -> Option<Vec<JSFunctionCall>> {
-        debug!("Finding function calls");
+        debug!("Finding function calls for {}", function_name);
         Regex::new(
             format!(
                 r#"{}=function\(a\)\{{a=a.split\(""\);(.+)return a\.join\(""\)\}};"#,
@@ -108,6 +108,7 @@ mod xtract {
         .and_then(|regex| regex.captures(base_js))
         .and_then(|caps| caps.get(1))
         .and_then(|m| {
+            debug!("Calls are {}", m.as_str());
             let calls: Vec<JSFunctionCall> = FUNCTION_CALL_REGEX
                 .captures_iter(m.as_str())
                 .filter_map(|caps| {
@@ -184,30 +185,40 @@ mod xtract {
         base_js: &'a str,
         function_name: &'a str,
     ) -> Option<Vec<JSFunction>> {
-        RegexBuilder::new(format!(r#"var {}=\{{((?:.|\s)+?)}};"#, function_name).as_str())
-            .multi_line(true)
-            .build()
-            .ok()
-            .and_then(|regex| regex.captures(base_js))
-            .and_then(|caps| caps.get(1))
-            .map(|m| m.as_str())
-            .map(|m| FUNCTION_REGEX.captures_iter(m))
-            .map(|caps_it| {
-                caps_it
-                    .map(|caps| JSFunction {
-                        name: Some(caps.get(1).unwrap().as_str().to_string()),
-                        params: caps
-                            .get(2)
-                            .unwrap()
-                            .as_str()
-                            .to_string()
-                            .split(',')
-                            .map(|x| x.to_string())
-                            .collect(),
-                        body: caps.get(3).unwrap().as_str().to_string(),
-                    })
-                    .collect()
-            })
+        RegexBuilder::new(
+            format!(
+                r#"var {}=\{{((?:.|\s)+?)\}};"#,
+                regex::escape(function_name)
+            )
+            .as_str(),
+        )
+        .multi_line(true)
+        .build()
+        .ok()
+        .and_then(|regex| regex.captures(base_js))
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
+        .map(|m| {
+            debug!("Parts are {}", m);
+            m
+        })
+        .map(|m| FUNCTION_REGEX.captures_iter(m))
+        .map(|caps_it| {
+            caps_it
+                .map(|caps| JSFunction {
+                    name: Some(caps.get(1).unwrap().as_str().to_string()),
+                    params: caps
+                        .get(2)
+                        .unwrap()
+                        .as_str()
+                        .to_string()
+                        .split(',')
+                        .map(|x| x.to_string())
+                        .collect(),
+                    body: caps.get(3).unwrap().as_str().to_string(),
+                })
+                .collect()
+        })
     }
 
     pub fn apply_signature_transformation(
@@ -424,6 +435,7 @@ pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
             Status::InternalServerError
         })?;
     let base_js_url = xtract::base_js_url(&embed_html).ok_or(Status::InternalServerError)?;
+    debug!("BaseJS URL: {}", base_js_url);
     let base_js = client
         .get(&base_js_url)
         .send()
@@ -511,11 +523,12 @@ pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
                                 .map(|name| (calls, name))
                         })
                         .and_then(|(calls, name)| {
-                            debug!("Finding functions");
+                            debug!("Function name is {}", name);
                             xtract::signature_transform_function_parts(&base_js, &name)
                                 .map(|functions| (calls, functions))
                         })
                         .map(|(calls, functions)| {
+                            debug!("Applying functions");
                             xtract::apply_signature_transformation(&signature, functions, calls)
                         })
                         .and_then(|new_signature| {
