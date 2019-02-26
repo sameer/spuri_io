@@ -59,7 +59,9 @@ mod xtract {
             Regex::new(r#"\.sig\|\|(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*c\s*&&\s*d\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
             Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
-            Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap()
+            Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
+            Regex::new(r#"yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*c\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap(),
+            Regex::new(r#"\bc\s*&&\s*d\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?\s*(?P<sig>[a-zA-Z0-9$]+)\("#).unwrap()
         ];
         static ref SIGNATURE_TRANSFORM_FUNCTION_NAME_REGEX: Regex = Regex::new(r#"(\w+?)\."#).unwrap();
 
@@ -409,7 +411,7 @@ mod xtract {
 #[get("/audio/<id>")]
 pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
     let client = reqwest::Client::new();
-    let mut embed_html = client
+    let embed_html = client
         .get(format!("https://www.youtube.com/embed/{}", id).as_str())
         .send()
         .map_err(|err| {
@@ -422,7 +424,7 @@ pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
             Status::InternalServerError
         })?;
     let base_js_url = xtract::base_js_url(&embed_html).ok_or(Status::InternalServerError)?;
-    let mut base_js = client
+    let base_js = client
         .get(&base_js_url)
         .send()
         .map_err(|err| {
