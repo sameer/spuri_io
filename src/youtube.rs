@@ -419,8 +419,16 @@ mod xtract {
     }
 }
 
-#[get("/audio/<id>")]
-pub fn get_audio(id: String) -> Result<Stream<ChildKiller>, Status> {
+#[get("/audio/<id_or_url>")]
+pub fn get_audio(id_or_url: String) -> Result<Stream<ChildKiller>, Status> {
+    let id = Url::parse(&id_or_url)
+        .ok()
+        .and_then(|url: Url| {
+            url.query_pairs()
+                .find(|(key, _)| key == "v")
+                .map(|(_, value)| value.to_string())
+        })
+        .unwrap_or(id_or_url);
     let client = reqwest::Client::new();
     let embed_html = client
         .get(format!("https://www.youtube.com/embed/{}", id).as_str())
