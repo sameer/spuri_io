@@ -2,6 +2,8 @@
 // on reverse engineering YouTube
 // https://tyrrrz.me/Blog/Reverse-engineering-YouTube
 
+use rocket::http::uri::Origin;
+use rocket::http::uri::Segments;
 use rocket::{http::Status, response::Stream};
 use serde_urlencoded::from_str;
 use std::io::Read;
@@ -419,16 +421,18 @@ mod xtract {
     }
 }
 
-#[get("/audio/<id_or_url..>")]
-pub fn get_audio(id_or_url: String) -> Result<Stream<ChildKiller>, Status> {
-    let id = Url::parse(&id_or_url)
-        .ok()
-        .and_then(|url: Url| {
-            url.query_pairs()
-                .find(|(key, _)| key == "v")
-                .map(|(_, value)| value.to_string())
-        })
-        .unwrap_or(id_or_url);
+#[get("/audio/<segments..>")]
+pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<ChildKiller>, Status> {
+    let id = segments.next().ok_or(Status::InternalServerError)?;
+    let id: String = if segments.next().is_some() {
+        origin
+            .query()
+            .map(|x: &str| x[2..].to_string())
+            .ok_or(Status::InternalServerError)
+    } else {
+        Ok(id.to_string())
+    }?;
+    debug!("{}", id);
     let client = reqwest::Client::new();
     let embed_html = client
         .get(format!("https://www.youtube.com/embed/{}", id).as_str())
