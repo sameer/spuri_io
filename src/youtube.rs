@@ -419,7 +419,7 @@ mod xtract {
     }
 }
 
-#[get("/audio/<id_or_url>")]
+#[get("/audio/<id_or_url..>")]
 pub fn get_audio(id_or_url: String) -> Result<Stream<ChildKiller>, Status> {
     let id = Url::parse(&id_or_url)
         .ok()
