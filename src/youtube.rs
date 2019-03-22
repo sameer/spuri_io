@@ -582,6 +582,6 @@ pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<Child
                     error!("{}", err);
                     Status::InternalServerError
                 })?;
-            return Ok(Stream::from(ChildKiller(child)));
+            return Ok(Stream::chunked(ChildKiller(child), 4096));
         })
 }
