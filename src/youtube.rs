@@ -49,6 +49,173 @@ impl Read for ChildKiller {
     }
 }
 
+#[get("/audio/<segments..>")]
+pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<ChildKiller>, Status> {
+    let id = segments.next().ok_or(Status::InternalServerError)?;
+    let id: String = if segments.next().is_some() {
+        origin
+            .query()
+            .map(|x: &str| x[2..].to_string())
+            .ok_or(Status::InternalServerError)
+    } else {
+        Ok(id.to_string())
+    }?;
+    debug!("{}", id);
+    let client = reqwest::Client::new();
+    let embed_html = client
+        .get(format!("https://www.youtube.com/embed/{}", id).as_str())
+        .send()
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?
+        .text()
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?;
+    let base_js_url = xtract::base_js_url(&embed_html).ok_or(Status::InternalServerError)?;
+    debug!("BaseJS URL: {}", base_js_url);
+    let base_js = client
+        .get(&base_js_url)
+        .send()
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?
+        .text()
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?;
+
+    let sts = xtract::sts(&base_js).ok_or(Status::InternalServerError)?;
+    debug!("STS: {}", sts);
+
+    let mut video_info = client
+        .get("https://youtube.com/get_video_info")
+        .query(&[
+            ("video_id", id),
+            ("sts", sts.to_string()),
+            ("el", "detailpage".to_string()),
+        ])
+        .send()
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?;
+    if video_info.status() != reqwest::StatusCode::OK {
+        return Err(
+            Status::from_code(video_info.status().as_u16()).unwrap_or(Status::InternalServerError)
+        );
+    }
+    let video_info: GetVideoInfo = from_str(
+        video_info
+            .text()
+            .map_err(|err| {
+                error!("{}", err);
+                Status::InternalServerError
+            })?
+            .as_str(),
+    )
+    .map_err(|err| {
+        error!("{}", err);
+        Status::InternalServerError
+    })?;
+    debug!("{:?}", video_info);
+
+    let mp4_itags = vec!["22", "18", "37", "59", "78"];
+    let fmt_streams = video_info
+        .url_encoded_fmt_stream_map
+        .split(',')
+        .try_fold(vec![], |mut acc: Vec<FmtStream>, url_encoded| {
+            serde_urlencoded::from_str(url_encoded).map(|fmt_stream| {
+                acc.push(fmt_stream);
+                acc
+            })
+        })
+        .map_err(|err| {
+            error!("{}", err);
+            Status::InternalServerError
+        })?;
+    fmt_streams
+        .iter()
+        .find(|fmt_stream| mp4_itags.contains(&fmt_stream.itag.as_str()))
+        .ok_or(Status::NotFound)
+        .and_then(|fmt_stream| {
+            Url::parse(&fmt_stream.url)
+                .map(|url| (fmt_stream, url))
+                .map_err(|err| {
+                    error!("{}", err);
+                    Status::InternalServerError
+                })
+        })
+        .map(|(fmt_stream, mut fmt_stream_url)| {
+            fmt_stream
+                .signature
+                .clone()
+                .and_then(|signature| {
+                    xtract::signature_function_name(&base_js)
+                        .and_then(|name| xtract::signature_function_calls(&base_js, name))
+                        .and_then(|calls| {
+                            debug!("Finding function name");
+                            xtract::signature_transform_function_name(&calls)
+                                .map(|name| (calls, name))
+                        })
+                        .and_then(|(calls, name)| {
+                            debug!("Function name is {}", name);
+                            xtract::signature_transform_function_parts(&base_js, &name)
+                                .map(|functions| (calls, functions))
+                        })
+                        .map(|(calls, functions)| {
+                            debug!("Applying functions");
+                            xtract::apply_signature_transformation(&signature, functions, calls)
+                        })
+                        .and_then(|new_signature| {
+                            let new_query_string: String = fmt_stream_url
+                                .query_pairs()
+                                .filter(|(query_name, _query_value)| query_name != "signature")
+                                .fold(
+                                    url::form_urlencoded::Serializer::new(String::new()),
+                                    |mut acc, (query_name, query_value)| {
+                                        acc.append_pair(
+                                            &query_name.to_string(),
+                                            &query_value.to_string(),
+                                        );
+                                        acc
+                                    },
+                                )
+                                .append_pair("signature", &new_signature)
+                                .finish();
+                            debug!("New query string is {}", new_query_string);
+                            fmt_stream_url.set_query(Some(&new_query_string));
+                            Some(fmt_stream_url.to_string())
+                        })
+                })
+                .unwrap_or_else(|| fmt_stream_url.to_string())
+        })
+        .and_then(|fmt_stream_url| {
+            debug!("Connecting to URL {}", fmt_stream_url);
+            let child = Command::new("ffmpeg")
+                .arg("-i")
+                .arg(fmt_stream_url)
+                .arg("-f")
+                .arg("mp3")
+                .arg("-metadata")
+                .arg(r#"title="Someone""#)
+                .arg("pipe:1")
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .stdin(std::process::Stdio::null())
+                .spawn()
+                .map_err(|err| {
+                    error!("{}", err);
+                    Status::InternalServerError
+                })?;
+            return Ok(Stream::chunked(ChildKiller(child), 4096));
+        })
+}
+
 mod xtract {
     use regex::{Regex, RegexBuilder};
 
@@ -419,169 +586,4 @@ mod xtract {
                 apply_signature_transformation("A8FED286CE18E0B6D16F4743AE6D7A37506361E1.1BE82917965E7925F313F50A4D342313C139D1D5", body.unwrap(), function_body));
         }
     }
-}
-
-#[get("/audio/<segments..>")]
-pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<ChildKiller>, Status> {
-    let id = segments.next().ok_or(Status::InternalServerError)?;
-    let id: String = if segments.next().is_some() {
-        origin
-            .query()
-            .map(|x: &str| x[2..].to_string())
-            .ok_or(Status::InternalServerError)
-    } else {
-        Ok(id.to_string())
-    }?;
-    debug!("{}", id);
-    let client = reqwest::Client::new();
-    let embed_html = client
-        .get(format!("https://www.youtube.com/embed/{}", id).as_str())
-        .send()
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?
-        .text()
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?;
-    let base_js_url = xtract::base_js_url(&embed_html).ok_or(Status::InternalServerError)?;
-    debug!("BaseJS URL: {}", base_js_url);
-    let base_js = client
-        .get(&base_js_url)
-        .send()
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?
-        .text()
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?;
-
-    let sts = xtract::sts(&base_js).ok_or(Status::InternalServerError)?;
-    debug!("STS: {}", sts);
-
-    let mut video_info = client
-        .get("https://youtube.com/get_video_info")
-        .query(&[
-            ("video_id", id),
-            ("sts", sts.to_string()),
-            ("el", "detailpage".to_string()),
-        ])
-        .send()
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?;
-    if video_info.status() != reqwest::StatusCode::OK {
-        return Err(
-            Status::from_code(video_info.status().as_u16()).unwrap_or(Status::InternalServerError)
-        );
-    }
-    let video_info: GetVideoInfo = from_str(
-        video_info
-            .text()
-            .map_err(|err| {
-                error!("{}", err);
-                Status::InternalServerError
-            })?
-            .as_str(),
-    )
-    .map_err(|err| {
-        error!("{}", err);
-        Status::InternalServerError
-    })?;
-    debug!("{:?}", video_info);
-
-    let mp4_itags = vec!["22", "18", "37", "59", "78"];
-    let fmt_streams = video_info
-        .url_encoded_fmt_stream_map
-        .split(',')
-        .try_fold(vec![], |mut acc: Vec<FmtStream>, url_encoded| {
-            serde_urlencoded::from_str(url_encoded).map(|fmt_stream| {
-                acc.push(fmt_stream);
-                acc
-            })
-        })
-        .map_err(|err| {
-            error!("{}", err);
-            Status::InternalServerError
-        })?;
-    fmt_streams
-        .iter()
-        .find(|fmt_stream| mp4_itags.contains(&fmt_stream.itag.as_str()))
-        .ok_or(Status::NotFound)
-        .and_then(|fmt_stream| {
-            Url::parse(&fmt_stream.url)
-                .map(|url| (fmt_stream, url))
-                .map_err(|err| {
-                    error!("{}", err);
-                    Status::InternalServerError
-                })
-        })
-        .map(|(fmt_stream, mut fmt_stream_url)| {
-            fmt_stream
-                .signature
-                .clone()
-                .and_then(|signature| {
-                    xtract::signature_function_name(&base_js)
-                        .and_then(|name| xtract::signature_function_calls(&base_js, name))
-                        .and_then(|calls| {
-                            debug!("Finding function name");
-                            xtract::signature_transform_function_name(&calls)
-                                .map(|name| (calls, name))
-                        })
-                        .and_then(|(calls, name)| {
-                            debug!("Function name is {}", name);
-                            xtract::signature_transform_function_parts(&base_js, &name)
-                                .map(|functions| (calls, functions))
-                        })
-                        .map(|(calls, functions)| {
-                            debug!("Applying functions");
-                            xtract::apply_signature_transformation(&signature, functions, calls)
-                        })
-                        .and_then(|new_signature| {
-                            let new_query_string: String = fmt_stream_url
-                                .query_pairs()
-                                .filter(|(query_name, _query_value)| query_name != "signature")
-                                .fold(
-                                    url::form_urlencoded::Serializer::new(String::new()),
-                                    |mut acc, (query_name, query_value)| {
-                                        acc.append_pair(
-                                            &query_name.to_string(),
-                                            &query_value.to_string(),
-                                        );
-                                        acc
-                                    },
-                                )
-                                .append_pair("signature", &new_signature)
-                                .finish();
-                            debug!("New query string is {}", new_query_string);
-                            fmt_stream_url.set_query(Some(&new_query_string));
-                            Some(fmt_stream_url.to_string())
-                        })
-                })
-                .unwrap_or_else(|| fmt_stream_url.to_string())
-        })
-        .and_then(|fmt_stream_url| {
-            debug!("Connecting to URL {}", fmt_stream_url);
-            let child = Command::new("ffmpeg")
-                .arg("-i")
-                .arg(fmt_stream_url)
-                .arg("-f")
-                .arg("mp3")
-                .arg("pipe:1")
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .stdin(std::process::Stdio::null())
-                .spawn()
-                .map_err(|err| {
-                    error!("{}", err);
-                    Status::InternalServerError
-                })?;
-            return Ok(Stream::chunked(ChildKiller(child), 4096));
-        })
 }
