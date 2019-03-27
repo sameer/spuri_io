@@ -26,6 +26,8 @@ struct FmtStream {
 #[derive(Deserialize, Debug)]
 struct GetVideoInfo {
     url_encoded_fmt_stream_map: String,
+    title: String,
+    author: String,
 }
 
 pub struct ChildKiller(Child);
@@ -202,7 +204,9 @@ pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<Child
                 .arg("-f")
                 .arg("mp3")
                 .arg("-metadata")
-                .arg(r#"title="Someone""#)
+                .arg(format!("title=\"{}\"", video_info.title))
+                .arg("-metadata")
+                .arg(format!("author=\"{}\"", video_info.author))
                 .arg("pipe:1")
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null())
