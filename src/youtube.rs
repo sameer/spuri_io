@@ -206,7 +206,7 @@ pub fn get_audio(mut segments: Segments, origin: &Origin) -> Result<Stream<Child
                 .arg("-metadata")
                 .arg(format!("title=\"{}\"", video_info.title))
                 .arg("-metadata")
-                .arg(format!("author=\"{}\"", video_info.author))
+                .arg(format!("artist=\"{}\"", video_info.author))
                 .arg("pipe:1")
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null())
