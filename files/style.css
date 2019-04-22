@@ -2,6 +2,9 @@
 * {
     font-family: 'Open Sans', sans-serif;
 }
+code {
+    font-family: monospace;
+}
 blockquote, details {
     border: 1px solid silver;
     padding: 10px;
