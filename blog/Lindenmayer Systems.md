@@ -19,7 +19,7 @@ print state
 
 Aristid Lindenmayer, the name sake of L-systems, originally developed the above system to model the growth of algae. L-systems, when used with ]turtle graphics](https://en.wikipedia.org/wiki/Turtle_graphics), can actually draw fractals and other interesting patterns found in nature.
 
-Some terms have special meaning for the purpose of the turtle graphics:
+Some terms have special meaning for the purpose of the turtle graphics. Note that the use of '[' or ']' makes the system a bracketed OL-system, a refinement on L-systems.
 ```
 F = move forward 1 unit
 + = increment current angle by angle
