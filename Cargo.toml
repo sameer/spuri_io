@@ -12,17 +12,17 @@ env_logger = "0.6"
 log = "0.4"
 base64 = "0.10"
 notify = "4.0"
-image = "0.20"
+image = "0.21"
 serde = "1.0"
 serde_derive = "1.0"
 serde_urlencoded = "0.5"
-pulldown-cmark = { version = "0.2", default-features = false }
-ammonia = "2.0"
+pulldown-cmark = { version = "0.5", features = ['simd'] }
+ammonia = { version = "2" }
 chrono = "0.4"
 reqwest = "0.9"
 url = "1.7"
 regex = "1.1"
-lazy_static = "1.2"
+lazy_static = "1.3"
 
 [build-dependencies]
 askama = { git = 'https://github.com/djc/askama', features = ['with-rocket'] }

@@ -3,7 +3,7 @@ use base::*;
 use chrono::offset::Utc;
 use chrono::DateTime;
 use err;
-use pulldown_cmark::Parser;
+use pulldown_cmark::{Options, Parser};
 use rocket::{http::Status, State};
 use std::collections::HashMap;
 use std::env;
@@ -135,10 +135,17 @@ impl Post {
         fs::File::open(&path)
             .and_then(|mut file| file.read_to_string(&mut markdown_buf).map(|_| markdown_buf))
             .map(|markdown_text| {
-                let parser = Parser::new(&markdown_text);
+                let mut opts = Options::empty();
+                opts.insert(Options::ENABLE_FOOTNOTES);
+                let parser = Parser::new_ext(&markdown_text, opts);
                 let mut unsafe_html_text = String::new();
                 pulldown_cmark::html::push_html(&mut unsafe_html_text, parser);
-                ammonia::clean(&*unsafe_html_text)
+                ammonia::Builder::default()
+                    .add_tag_attributes("div", &["id"])
+                    .add_tag_attribute_values("div","class", &["footnote-definition"])
+                    .add_tag_attribute_values("sup","class", &["footnote-definition-label"])
+                    .clean(&*unsafe_html_text)
+                    .to_string()
             })
     }
 
