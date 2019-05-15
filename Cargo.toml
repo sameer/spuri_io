@@ -25,6 +25,5 @@ regex = "1.1"
 lazy_static = "1.3"
 
 [build-dependencies]
-askama = { git = 'https://github.com/djc/askama', features = ['with-rocket'] }
 openssl = "0.10"
 base64 = "0.10"

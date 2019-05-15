@@ -53,10 +53,10 @@ fn main() {
     env_logger::init();
     info!("Starting...");
 
-    let base_arc = Arc::new(BASE);
+    let base_arc = Arc::new(BASE.clone());
 
     rocket::custom(configure())
-        .manage(BASE)
+        .manage(BASE.clone())
         .manage(blog::Blog::new(base_arc.clone()))
         .manage(code_art::Gallery::new(base_arc.clone()))
         .mount("/blog", routes![blog::get_index, blog::get_post])

@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
-src/css_file_hash
 *.pem
 #files/code_art/*
 #blog/

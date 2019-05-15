@@ -142,8 +142,8 @@ impl Post {
                 pulldown_cmark::html::push_html(&mut unsafe_html_text, parser);
                 ammonia::Builder::default()
                     .add_tag_attributes("div", &["id"])
-                    .add_tag_attribute_values("div","class", &["footnote-definition"])
-                    .add_tag_attribute_values("sup","class", &["footnote-definition-label"])
+                    .add_tag_attribute_values("div", "class", &["footnote-definition"])
+                    .add_tag_attribute_values("sup", "class", &["footnote-definition-label"])
                     .clean(&*unsafe_html_text)
                     .to_string()
             })
