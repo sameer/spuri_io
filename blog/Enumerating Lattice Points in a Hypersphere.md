@@ -12,21 +12,25 @@ To start things off, I want to give a few definitions:
 
 
 ### Hypercubes: a low hanging fruit
-Counting the lattice points in a hypercube is possible in linear time proportional to the number of dimensions. Consider the 2D case:
+Counting the lattice points in a hypercube is possible in linear time proportional to the number of dimensions.
+
+First, let's look at the 1D case. A hypercube in this context is just a range on a number line, \[x&#8321;,x&#8322;\]. The lattice points inside of this range are all the integer values between the two endpoints. To find them, you can round x&#8321; up and round x&#8322; down to the nearest whole number. In other words, take the ceiling and floor respectively. This gives us an integral subrange \[x&#8321;<sup>'</sup>,x&#8322;<sup>'</sup>\] that still contains all the lattice points. This makes it easy to count the lattice points as x&#8322;<sup>'</sup>-x&#8321;<sup>'</sup> and enumerate them by looping through the subrange.
+
+Now consider the 2D case:
 
 `Graphics[{Red, Rectangle[{-5, -5}, {5, 5}], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
 
 ![Square graphed with lattice points](/files/squarelatticeeasy.svg)
 
-The square has a side length of 10 and is centered at the origin. Because each of the vertices corresponds with a lattice point, the contained lattice points are a 2-dimensional range from the lower left corner (x&#8321;,y&#8321;) to the upper right corner (x&#8322;,y&#8322;): {(x,y) | x&#8714; \[x&#8321;,x&#8322;\], y&#8714; \[y&#8321;,y&#8322;\]}. The total point count is (x&#8322;-x&#8321;)(y&#8322;-y&#8322;). For this case, the number of lattice points is thus (5-(-5))(5-(-5))=100.
+The square has a side length of 10 and is centered at the origin. Because each of the vertices corresponds with a lattice point, the contained lattice points are a 2-dimensional range from the lower left corner (x&#8321;,y&#8321;) to the upper right corner (x&#8322;,y&#8322;): {(x,y) | x&#8714; \[x&#8321;,x&#8322;\], y&#8714; \[y&#8321;,y&#8322;\]}. The total point count is (x&#8322;-x&#8321;)*(y&#8322;-y&#8322;) and can be enumerated with a nested loop. For this case, the number of lattice points is thus (5-(-5))(5-(-5))=100.
 
-How about when the square's vertices are not lattice points?
+What about when the square's vertices are not lattice points?
 
 `Graphics[{Red, Rectangle[{-5.5, -5.5}, {5.5, 5.5}], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
 
 ![Square graphed with lattice points](/files/squarelattice.svg)
 
- This can be reduced this to the original case by taking the floor of the upper right corner and the ceiling of the lower left corner. Because all lattice points have integer values, they can only lie in this shrunken square: 
+ This can be reduced this to the previous situation by taking the floor of the upper right corner and the ceiling of the lower left corner. This is the *same* idea from the 1D case, but in 2D. Because all lattice points have integer values, they can only lie in this shrunken square: 
 
 `Graphics[{Red, Rectangle[{-5.5, -5.5}, {5.5, 5.5}], Lighter@Red, Rectangle[{-5.5, -5.5} // Ceiling, {5.5, 5.5} // Floor], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
 
@@ -36,11 +40,11 @@ Rectangles also work with the above formulation. It applies to the 3D case by ta
 
 #### Time analysis
 
-Finding all the lattice points in an n-dimensional hypercube is O(n) due to the requirement of taking the floor and ceiling of the corners. Counting the lattice points in a hypercube thus also takes O(n) time.
+Finding all the lattice points in an n-dimensional hypercube takes O(n) time. There are always only 2 corners for a hypercube, but the number of floor and ceiling operations increases linearly in higher dimensions.
 
 ### Hyperspheres: much harder
 
-Counting the lattice points inside a hypersphere is not as simple. Consider the 2D case, known as the [Gauss circle problem](https://en.wikipedia.org/wiki/Gauss_circle_problem):
+Enumerating and/or counting the lattice points inside a hypersphere is not as simple. Consider the 2D case, known as the [Gauss circle problem](https://en.wikipedia.org/wiki/Gauss_circle_problem):
 
 `Graphics[{Red, Disk[{0, 0}, 10], Black, Point /@ Tuples[Range[-10, 10], 2]}]`
 
@@ -60,33 +64,20 @@ Runtime can be improved by only testing on the lattice points between the inscri
 
 ![Circle graphed with lattice points an escribed square, and an inscribed square](/files/escribedsquareandinscribedsquare.svg)
 
-But this will still take O(r<sup>n</sup>) time. To improve this time bound, I tried and failed with many ideas including a [midpoint circle algorithm](https://en.wikipedia.org/wiki/Midpoint_circle_algorithm) adaptation, flood filling, scanlines, and appoximating the circle as an inscribed regular polygon with n sides. In the end, I settled on a method that takes time proportional to the hypersurface and can be used to enumerate and count all points.
+But this will still take O(r<sup>n</sup>) time. To improve this time bound, I tried and failed with many ideas including a [midpoint circle algorithm](https://en.wikipedia.org/wiki/Midpoint_circle_algorithm) adaptation, flood filling, scanlines, and appoximating the circle as an inscribed regular polygon with n sides.
 
-First, it finds the lattice points in the inscribed square. This of course involves the method described in the hypercube section, producing a shrunken inscribed square.
+In the end, I settled on a method that solves the problem in lower dimensions. First, select the last dimension of the circle's center and solve the 1D problem on the range \[c<sup>n</sup>-r,c<sup>n</sup>+r\]. The 1D problem is luckily the same as the hypercube 1D problem. This gives a range of all the possible values for the nth dimension of a lattice point in the circle. Then, solve the 2D problem with dimensions n-1,n by iterating over the lattice points found in the 1D problem and solving the equation for a circle treating the n-1 dimension as missing. This gives a range of lattice point values for the n-1 dimension at each lattice point from the 1D problem for dimension n. This proceeds recursively up to n dimensions, solving for each new dimension added.
 
-`Graphics[{Red, Disk[{0, 0}, 10], Darker@Red, Rectangle[{-10, -10}/Sqrt[2], {10, 10}/Sqrt[2]], Black, Point /@ Tuples[Range[-10, 10], 2], White, Large // PointSize, Point /@ Tuples[Range[Ceiling[-10/Sqrt[2]], Floor[10/Sqrt[2]]], 2]}]`
-
-![Circle graphed with lattice points in the inscribed square highlighted](/files/inscribedsquarehighlightedlatticepoints.svg)
-
-Then, to handle the remaining curved sections, it iterates over the sides of the shrunken inscribed square to build new ranges of points to add. For each point on a side, it solves the circle equation treating the constant dimension (y if the side is horizontal, x if vertical) as missing to find the corresponding point on the circle. The range of lattice points through the line perpendicular to the side from the side point to the circle point is then considered.
-
-For the case of expanding up:
-`Graphics[{Red, Disk[{0, 0}, 10], Darker@Red, Rectangle[{-10, -10}/Sqrt[2], {10, 10}/Sqrt[2]], Black, Point /@ Tuples[Range[-10, 10], 2], White, Large // PointSize, Point /@ Tuples[Range[Ceiling[-10/Sqrt[2]], Floor[10/Sqrt[2]]], 2], Point /@ Tuples[{{#}, Range[Floor[10/Sqrt[2]], y /. Solve[#^2 + y^2 == 10^2 && y > 0, y, Reals] // First // Floor]}] & /@ Range[Ceiling[-10/Sqrt[2]], Floor[10/Sqrt[2]]]}]`
-
-Notably: `Point /@ Tuples[{{#}, Range[Floor[10/Sqrt[2]], y /. Solve[#^2 + y^2 == 10^2 && y > 0, y, Reals] // First // Floor]}] & /@ Range[Ceiling[-10/Sqrt[2]], Floor[10/Sqrt[2]]]`
-
-![Circle graphed with lattice points in the inscribed square and above the inscribed square yet inside the circle highlighted](/files/inscribedsquareexpandedup.svg)
-
-This is repeated for the other 3 sides of the rectangle. I [implemented the method for the 2D case in Mathematica](/files/circle_lattice.pdf). A few checks are included to double-check my implementation for enumeration, such as uniqueness of the points, whether they are in the circle, and a check for missing points. The way it is implemented gives all points at once rather than lazily enumerating them, so beware, *it may eat up all your RAM at a high radius!* There are a lot of neat tricks possible here like reflecting across the x and y axis, but this does not change the overall time complexity.
+I [implemented the method for the n-dimensional case in Mathematica](/files/circle_lattice.pdf). A few checks are included to double-check my implementation for enumeration, such as uniqueness of the points, whether they are in the circle, and a check for missing points. The way it is implemented gives all points at once rather than lazily enumerating them, so beware, *it may eat up all your RAM at a high radius/dimension!* There are a lot of neat tricks possible here like reflecting across the x and y axis, but this does not change the overall time complexity.
 
 
 #### Time analysis
 
-For the n-dimensional case, there are 2n faces to be checked, each with a hyperarea (?) of (2r/sqrt(d))<sup>d-1</sup>. This simplifies to O(2<sup>d</sup>d(r/sqrt(d))<sup>d-1</sup>), and further to O(2<sup>n</sup>n<sup>(3-n)/2</sup>r<sup>n-1</sup>). It takes a linear O(r) time for the 2D case and O(r&#178;) for the 3D case. The constant grows as dimensionality increases due to additional facets. The time taken is proportional to hypersphere surface area, which is 2<sup>n-1</sup>πr<sup>n-1</sup>.
+For the n-dimensional case, a series of lower dimensional cases are recursively solved. The total time taken is proportional to the hypervolumes of these cases, as this is approximately how many times the circle with missing coordinate equation is solved. In Big-O notation, this is O(V<sub>n-1</sub>(r)) where r is the hypersphere radius and V is a function that gives volume of the hypersphere in one lower dimension.
 
 ## Concluding Remarks
 
-Thus, I have shown above a method for enumerating hypersphere lattice points that scales with hypersphere surface area. This is an improvement over the naive approach which scales with hypersphere volume. There are many other shapes worth investigating, like a polytope. Barvinok's algorithm, which finds the lattice points in a convex polytope in polynomial time, was implemented and improved by a team at UC Davis in the [LattE software package](https://www.math.ucdavis.edu/~latte/).
+Thus, I have shown above a method for enumerating hypersphere lattice points that scales with hypersphere surface area. This is an improvement over the naive approach which scales with hypersphere volume. There are many other shapes worth investigating, like a polytope. Barvinok's algorithm, which finds the lattice points in a convex polytope in polynomial time, is implemented by a team at UC Davis in the [LattE software package](https://www.math.ucdavis.edu/~latte/). It is worth investigating how the method above, if applied to convex polytopes, compares to LattE.
 
 ## Licensing
 
