@@ -73,7 +73,7 @@ I [implemented the method for the n-dimensional case in Mathematica](/files/circ
 
 #### Time analysis
 
-For the n-dimensional case, a series of lower dimensional cases are recursively solved. The total time taken is proportional to the hypervolumes of these cases, as this is approximately how many times the circle with missing coordinate equation is solved. In Big-O notation, this is O(V<sub>n-1</sub>(r)) where r is the hypersphere radius and V is a function that gives volume of the hypersphere in one lower dimension.
+For the n-dimensional case, a series of lower dimensional cases are recursively solved. The total time taken is proportional to the hypervolumes of these cases, as this is approximately how many times the circle with missing coordinate equation is solved. In Big-O notation, this is O(V<sub>n-1</sub>(r)) where r is the hypersphere radius and V is a function that gives volume of the hypersphere in one lower dimension. If dealing with only a specific dimension, this can be viewed as O(r<sup>n-1</sup>) with a constant that shrinks as dimension increases. This means it is O(r) for circles and O(r<sup>2</sup>) for spheres.
 
 ## Concluding Remarks
 
