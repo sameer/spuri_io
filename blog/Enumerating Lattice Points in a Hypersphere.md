@@ -15,6 +15,7 @@ To start things off, I want to give a few definitions:
 Counting the lattice points in a hypercube is possible in linear time proportional to the number of dimensions. Consider the 2D case:
 
 `Graphics[{Red, Rectangle[{-5, -5}, {5, 5}], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
+
 ![Square graphed with lattice points](/files/squarelatticeeasy.svg)
 
 The square has a side length of 10 and is centered at the origin. Because each of the vertices corresponds with a lattice point, the contained lattice points are a 2-dimensional range from the lower left corner (x&#8321;,y&#8321;) to the upper right corner (x&#8322;,y&#8322;): {(x,y) | x&#8714; \[x&#8321;,x&#8322;\], y&#8714; \[y&#8321;,y&#8322;\]}. The total point count is (x&#8322;-x&#8321;)(y&#8322;-y&#8322;). For this case, the number of lattice points is thus (5-(-5))(5-(-5))=100.
@@ -22,14 +23,13 @@ The square has a side length of 10 and is centered at the origin. Because each o
 How about when the square's vertices are not lattice points?
 
 `Graphics[{Red, Rectangle[{-5.5, -5.5}, {5.5, 5.5}], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
+
 ![Square graphed with lattice points](/files/squarelattice.svg)
 
  This can be reduced this to the original case by taking the floor of the upper right corner and the ceiling of the lower left corner. Because all lattice points have integer values, they can only lie in this shrunken square: 
-```
-Graphics[{Red, Rectangle[{-5.5, -5.5}, {5.5, 5.5}], 
-  Lighter@Red, Rectangle[{-5.5, -5.5} // Ceiling, {5.5, 5.5} // Floor],
-  Black, Point /@ Tuples[Range[-6, 6], 2]}]
-```
+
+`Graphics[{Red, Rectangle[{-5.5, -5.5}, {5.5, 5.5}], Lighter@Red, Rectangle[{-5.5, -5.5} // Ceiling, {5.5, 5.5} // Floor], Black, Point /@ Tuples[Range[-6, 6], 2]}]`
+
 ![Shrunk square graphed on top of original square](/files/squarelatticeshrunk.svg)
 
 Rectangles also work with the above formulation. It applies to the 3D case by taking a 3D range. Formulated for the n-dimensional case: {(p&#8321;,p&#8322;,...,p<sub>n</sub>) | p&#8321;&#8714; \[r&#185;&#8321;,r&#185;&#8322;\], p&#8322;&#8714; \[r&#178;&#8321;,r&#178;&#8322;\],...,p<sub>n</sub>&#8714;\[r<sup>n</sup>&#8321;,r<sup>n</sup>&#8322;\]} where p is a lattice point and r is the range from the lowest to highest corner (superscript of r is the dimension here, sorry for any confusion).
