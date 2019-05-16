@@ -88,3 +88,7 @@ For the n-dimensional case, there are 2n faces to be checked, each with a hypera
 
 Thus, I have shown above a method for enumerating hypersphere lattice points that scales with hypersphere surface area. This is an improvement over the naive approach which scales with hypersphere volume. There are many other shapes worth investigating, like a polytope. Barvinok's algorithm, which finds the lattice points in a convex polytope in polynomial time, was implemented and improved by a team at UC Davis in the [LattE software package](https://www.math.ucdavis.edu/~latte/).
 
+## Licensing
+
+The method is dual licensed under the Apache and MIT Licenses.
+
