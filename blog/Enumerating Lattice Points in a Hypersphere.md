@@ -2,13 +2,13 @@
 
 To start things off, I want to give a few definitions:
 
-*Lattice point* a point whose coordinates are integers: p &#8714; &#8484;<sup>n</sup>.
+*Lattice point:* a point whose coordinates are integers: p &#8714; &#8484;<sup>n</sup>.
 
-*Hypersphere* an n-dimensional shape of points within a distance r from a point p: {x | &#8721;<sup>n</sup><sub>i=0</sub> (x<sub>i</sub>-p<sub>i</sub>)<sup>2</sup> &le; r<sup>2</sup>}.
+*Hypersphere:* an n-dimensional shape of points within a distance r from a point p: {x | &#8721;<sup>n</sup><sub>i=0</sub> (x<sub>i</sub>-p<sub>i</sub>)<sup>2</sup> &le; r<sup>2</sup>}.
 
-*Hypercube* an n-dimensional cube. Square in 2D, Cube in 3D.
+*Hypercube:* an n-dimensional cube. Square in 2D, Cube in 3D.
 
-*Polytope* an n-dimensional polygon.
+*Polytope:* an n-dimensional polygon.
 
 
 ### Hypercubes: a low hanging fruit
