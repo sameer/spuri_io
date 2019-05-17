@@ -81,5 +81,5 @@ Thus, I have shown above a method for enumerating hypersphere lattice points tha
 
 ## Licensing
 
-The method is dual licensed under the Apache and MIT Licenses.
+The method and provided Mathematica code is dual licensed under the Apache and MIT Licenses.
 
