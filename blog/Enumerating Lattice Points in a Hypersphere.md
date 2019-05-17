@@ -66,7 +66,19 @@ Runtime can be improved by only testing on the lattice points between the inscri
 
 But this will still take O(r<sup>n</sup>) time. To improve this time bound, I tried and failed with many ideas including a [midpoint circle algorithm](https://en.wikipedia.org/wiki/Midpoint_circle_algorithm) adaptation, flood filling, scanlines, and appoximating the circle as an inscribed regular polygon with n sides.
 
-In the end, I settled on a method that solves the problem in lower dimensions. First, select the last dimension of the circle's center and solve the 1D problem on the range \[c<sup>n</sup>-r,c<sup>n</sup>+r\]. The 1D problem is luckily the same as the hypercube 1D problem. This gives a range of all the possible values for the nth dimension of a lattice point in the circle. Then, solve the 2D problem with dimensions n-1,n by iterating over the lattice points found in the 1D problem and solving the equation for a circle treating the n-1 dimension as missing. This gives a range of lattice point values for the n-1 dimension at each lattice point from the 1D problem for dimension n. This proceeds recursively up to n dimensions, solving for each new dimension added.
+In the end, I settled on a method that recursively solves the problem for each dimension. First, select the last dimension of the circle's center (y-axis) and solve the 1D problem on the range \[c<sup>y</sup>-r,c<sup>y</sup>+r\]. The 1D problem is luckily the same as the hypercube 1D problem mentioned above. This gives the range of possible values for the y-coordinate of a lattice point in the circle.
+
+`Graphics[{Red, Disk[{0, 0}, 10], Black, Point /@ Tuples[{{0}, Range[-10, 10]}]}]`
+
+![Circle graphed with the solution of 1D problem for y-axis](/files/circle1dproblem.svg)
+
+Now, at each possible y coordinate for a lattice point, solve the circle equation (x-a)<sup>2</sup>+(y-b)<sup>2</sup>=r<sup>2</sup> for x. This gives the range of lattice point coordinates in the x-axis, dependent on the current y-coordinate. The 1D problem is again solved on each x-coordinate range.
+
+`Graphics[{Black, Disk[{0, 0}, 10], Black, MapIndexed[{Hue[#2[[1]]/25], Large // PointSize, Point[#1]} &, Tuples[{Range @@ MapIndexed[If[#2[[1]] == 2, #1 // Floor, #1 // Ceiling] &, x /. Solve[x^2 + #^2 == 10^2, x, Reals]], {#}}] & /@ Range[-10, 10]]}]`
+
+![Circle graphed with 2D solution](/files/circle2dproblem.svg)
+
+For higher dimensions, this proceeds recursively up to n dimensions, solving for each new dimension added at each possible coordinate found in the lower dimensions.
 
 I [implemented the method for the n-dimensional case in Mathematica](https://github.com/sameer/hypersphere-lattice-points). A few checks are included to double-check my implementation for enumeration, such as uniqueness of the points, whether they are in the circle, and a check for missing points. The way it is implemented gives all points at once rather than lazily enumerating them, so beware, *it may eat up all your RAM at a high radius/dimension!* There are a lot of neat tricks possible here like reflecting across the x and y axis, but this does not change the overall time complexity.
 
