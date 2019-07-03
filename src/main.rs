@@ -1,5 +1,4 @@
 #![feature(proc_macro_hygiene, decl_macro)]
-#![feature(type_alias_enum_variants)]
 #[macro_use]
 extern crate rocket;
 extern crate askama;
