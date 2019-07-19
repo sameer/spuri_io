@@ -9,7 +9,7 @@ blockquote, details {
     border: 1px solid silver;
     padding: 10px;
 }
-img {
+img, video {
     max-width: 100%;
     max-height: 100%;
 }
