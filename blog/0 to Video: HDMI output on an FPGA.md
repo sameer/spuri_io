@@ -58,7 +58,7 @@ The pixel clock needs to be fast enough to fit 60 of these frames into a single 
 
 ### Transition Minimized Differential Signaling (TMDS)
 
-There are three TMDS lanes in the HDMI cable. I'm using RGB 24-bit color (4:4:4) so each lane carries 8 bits of color -- 0: red, 1: green, and 2: blue. TMDS itself is pretty impressive. It was designed to minimize electromagnetic interference over copper cabling using a twisted pair of differential signals and an 8-to-10 bit encoding that DC balances the signal. Luckily, Jean P. Nicolle from fpga4fun wrote [a video TMDS encoder](https://www.fpga4fun.com/files/HDMI_test.zip) which I have re-used.
+There are three TMDS lanes in the HDMI cable. I'm using RGB 24-bit color so each lane carries 8 bits of color -- 0: blue, 1: green, and 2: red. TMDS itself is pretty impressive. It was designed to minimize electromagnetic interference over copper cabling using a twisted pair of differential signals and an 8-to-10 bit encoding that DC balances the signal. Luckily, Jean P. Nicolle from fpga4fun wrote [a video TMDS encoder](https://www.fpga4fun.com/files/HDMI_test.zip) which I have re-used.
 
 There's 10 bits of data to send per pixel clock on the TMDS lanes so I needed a TMDS clock ten times as fast at 250MHz. Making a clock faster that the 50MHz on-board oscillator was not immediately obvious.
 
@@ -110,10 +110,10 @@ After all this troubleshooting, I finally got something to display:
 
 Many TVs have a feature called overscan that crops the image and stretches it to fit the screen. 
 
-The red border on my monitor below is invisible on my TV:
+The red border on my monitor below is cut off on some TVs:
 ![Overscan area highlighted in red](/files/display_overscan.jpg)
 
-Historically, this was because old CRT TVs had unreliable image scaling and positioning, so TV stations designated a safe display area. Modern TVs don't need this compensation anymore but still enable this by default because some TV stations will send junk data in these regions. Unfortunately, Samsung has dropped the ball on this: **their TV firmware does not allow customers to disable overscan on 4:3 resolutions**.
+Historically, this was because old CRT TVs had unreliable image scaling and positioning, so TV stations designated a safe display area. Modern TVs don't need this compensation anymore but still enable it by default since some TV stations send junk data in these regions. Unfortunately, Samsung has dropped the ball on this: **their TV firmware does not allow customers to disable overscan on 4:3 resolutions**.
 
 ## Future work
 
@@ -126,7 +126,7 @@ Being able to display text makes for easier debugging so I'm implementing [VGA-c
 
 ### Audio
 
-HDMI also lets you send audio when video isn't being output. It has something to do with "data island" packets but since I'm not a current adopter of HDMI I can't read the latest specification. Jumping down a few internet rabbit holes should yield some results.
+HDMI also lets you send audio when video isn't being output. The HDMI version 1.3a specification is available for free from [hdmi.org](https://www.hdmi.org/manufacturer/specification.aspx) and explains data island packet construction for L-PCM audio.
 
 There are also some cool projects that directly produce audio signals over an audio jack. [Fpga4fun.com has one on PWM with a 1-bit DAC](https://www.fpga4fun.com/PWM_DAC_3.html).
 
