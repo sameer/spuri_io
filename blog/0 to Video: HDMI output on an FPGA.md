@@ -12,7 +12,7 @@ I set my sights on a simpler yet equally daunting project: *outputting video ove
 
 ## No HDMI output? No problem.
 
-My past self made the unfortunate oversight of getting an FPGA board without an HDMI port so I needed to buy an HDMI breakout board. Adafruit only had the PCB version in stock at the time so I also bought some soldering equipment.
+My past self made the unfortunate oversight of getting an FPGA board without an HDMI port, so I needed to buy an HDMI breakout board. Adafruit only had the PCB version in stock at the time so I also bought some soldering equipment.
 
 ### Amazon
 * Hakko FX-901 cordless soldering iron $28.50
@@ -29,78 +29,86 @@ Total: $62.58
 
 Total: $7.40
 
-My Amazon order took only a day to arrive. I chose the cheapest shipping option on Adafruit so I had to wait another week to get started.
+The Amazon order took only a day to arrive. The Adafruit order took a bit longer.
 
-The goods (excluding the HDMI breakout which I had already soldered):
+The goods, excluding the HDMI breakout which had already been soldered:
 ![All the stuff I ordered](/files/order.jpg)
 
-I bought a battery powered soldering iron so I can pack it in checked luggage on a flight. It also gives off some jumbo vape pen vibes.
+I bought the Hakko battery powered soldering iron since it's compact enough to take in checked luggage on a flight. It also gives off some jumbo vape pen vibes.
 
 ## Soldering
 
-Now to actually solder the HDMI PCB. I looked at [fpga4fun's guide on outputting video over HDMI](https://www.fpga4fun.com/HDMI.html) which suggested that I only needed to worry about the TMDS +/- data and pixel clock +/- lanes. I only soldered those pins to save on jumper cables (ignore the bits of wire, black & white jumpers for now):
+[Fpga4fun's guide on outputting video over HDMI](https://www.fpga4fun.com/HDMI.html) suggested that only the TMDS +/- data and pixel clock wires were absolutely necessary, so I only soldered those to save on jumper cables (ignore the bits of wire, black & white jumpers for now):
 
 ![Left side of HDMI breakout board with wires connected to it](/files/hdmi_left.jpg)
 ![Right side of HDMI breakout board with wires connected to it](/files/hdmi_right.jpg)
 
 ## Requirements
 
-According to [DVI 1.0 specification section 2.2.4.1](https://www.fpga4fun.com/files/dvi_spec-V1_0.pdf), the low-pixel format 640x480 @ 60HZ should be supported on all displays, so I settled on that. Plus it's already big enough for 360p video playback.
+I chose the low-pixel format 640x480p @ 60HZ since [DVI 1.0 specification section 2.2.4.1](https://www.fpga4fun.com/files/dvi_spec-V1_0.pdf) indicates it should be supported on most if not all displays. Plus, it's big enough for wide-360p video playback.
 
 ### Pixel clock
 
-Outputting the low-pixel format actually needs a larger 800x525 frame:
+Outputting the low-pixel format actually requires some extra room so a larger 800x525 frame is needed:
 ![Sketch of the 800x525 frame composition](/files/frame_diagram.jpg)
 
-The shaded intervals are pulses for vertical and horizontal synchronization. From my understanding, these were originally alotted to give time for the electron beam in a CRT display to reposition itself. They are now repurposed in HDMI for sending other data like audio.
+The extra room on the right is the vertical blanking interval. The extra room on the bottom is the horizontal blanking interval. These historically allotted time for the electron beam in a CRT display to reposition itself. Now, they are used for synchronization pulses (shaded in the picture above) and for sending other data like audio.
 
-The pixel clock needs to be fast enough to fit 60 of these frames into a single second: `800*525/frame * 60 frames/second / 1,000,000 Hz/Mhz = 25.2 MHz`. It's easier to produce 25MHz since I have an oscillator at 50MHz on my board. This also happens to be the lowest supported HDMI pixel clock.
+HDMI needs a pixel clock fast enough to fit 60 of these frames into a single second: `800*525 pixels/frame * 60 frames/second = 25,200,000 pixels/second (Hz) = 25.2 MHz`. It's easier to produce a 25MHz clock since I have a 50MHz clock that I can just divide by 2. The frame rate will technically be 59.52Hz but that should still work.
 
-### Transition Minimized Differential Signaling (TMDS)
+### TMDS Clock
 
-There are three TMDS lanes in the HDMI cable. I'm using RGB 24-bit color so each lane carries 8 bits of color -- 0: blue, 1: green, and 2: red. TMDS itself is pretty impressive. It was designed to minimize electromagnetic interference over copper cabling using a twisted pair of differential signals and an 8-to-10 bit encoding that DC balances the signal. Luckily, Jean P. Nicolle from fpga4fun wrote [a video TMDS encoder](https://www.fpga4fun.com/files/HDMI_test.zip) which I have re-used.
+HDMI has three channels for sending data. For 24-bit RGB video, each sends 8 bits of one color. Sending color for each pixel thus requires a clock 8 times as fast as the pixel clock. Because an 8 to 10 bit encoding called TMDS is used, it actually needs to be 10 times as fast at 250MHz. Making a clock faster than on-board oscillators was not immediately obvious.
 
-There's 10 bits of data to send per pixel clock on the TMDS lanes so I needed a TMDS clock ten times as fast at 250MHz. Making a clock faster that the 50MHz on-board oscillator was not immediately obvious.
+#### Phase-locked loop (PLL)
 
-### Phase-locked loop (PLL)
-
-I ran into [PLLs](https://en.wikipedia.org/wiki/Phase-locked_loop) while perusing my board's user manual. I don't fully understand them, but they multiply or divide an input frequency by a constant. Altera has a PLL [IP block](https://en.wikipedia.org/wiki/Semiconductor_intellectual_property_core) which I used to create 25MHz and 250MHz clocks:
+I discovored [PLLs](https://en.wikipedia.org/wiki/Phase-locked_loop) by chance while perusing my board's user manual. At a high level, they can multiply or divide input clocks by an integer. Altera has a PLL [IP block](https://en.wikipedia.org/wiki/Semiconductor_intellectual_property_core) which I used to create 25MHz and 250MHz clocks:
 
 ![Diagram of the PLL in Quartus](/files/pll.png)
 
+
+### What is TMDS?
+
+TMDS itself is pretty interesting, let's break it down.
+
+*Transition Minimized* refers to the encoding used. In the first stage, 8 bits are mapped to 9 to reduce the number of flips between 0 and 1. In the second stage, 9 bits are mapped to 10 to make the number of 0s and 1s equal on average ([DC balancing](https://en.wikipedia.org/wiki/DC_bias#Communications_systems)).
+
+*Differential Signaling* refers to how the 10 bits are transmitted. A positive and negative version of the signal is sent on a twisted pair of copper wiring in the HDMI cable. The receiver can filter out common electromagnetic interference since the signals should be exact opposites of one another and any noise will perturb them roughly the same.
+
+Writing a TMDS encoder from scratch would take time. Thankfully, Jean P. Nicolle from Fpga4fun.com provides [a video TMDS encoder](https://www.fpga4fun.com/files/HDMI_test.zip) which works great.
+
 ## Implementation in Verilog
 
-I wrote the top-level entity and other components from scratch but re-used Jean's TMDS encoder. The code is still a bit messy so I haven't released it yet. I'll update this post once I do.
+I wrote the top-level entity and other components from scratch and eventually switched over to my own TMDS encoder based on the HDMI 1.3a specification. I'll update this post once I release the code.
 
 ## Troubleshooting
 
-As expected, output didn't work on the first try. It took me a couple weeks to go through all the troubleshooting steps.
+As expected, output didn't work on the first try. It took a couple weeks to go through all the troubleshooting steps.
 
 ### Implementation level
 
-I tried running Jean's code exactly as given but it made no difference. I made a test bench and it seemed like the output was right in ModelSim.
-
+I tried running Jean's full HDMI example exactly as given but it made no difference. Running a test bench in ModelSim showed that the outputs were correct.
 
 ### Physical level
 
-I only soldered 8 of the 20 possible pins on the HDMI breakout board so I thought maybe some were missng or misconnected. I checked my pin assignments in Quartus and they match up with the jumpers plugged into the FPGA board and the names on the breakout board. I found a random [Arduino HDMI shield schematic](https://cdn.alchitry.com/emb/hdmi-shield/hdmi-shield.pdf) and saw they had 18/20 pins connected. The DDC SCL/SDA lines seem to be for something unrelated and I'm not worried about supporting hot plug detection for now. I connected all the shield pins to ground and the 5V pin to 5V on my FPGA board, hence all the random bits of wire in my soldered HDMI board from earlier.
+I checked the pin assignments in Quartus and they matched up with the jumpers plugged into the FPGA board and the names on the breakout board. The other possibility was that more wires were required. Only 8 of the 20 possible pins on the HDMI breakout board were soldered. I found a random [Arduino HDMI shield schematic](https://cdn.alchitry.com/emb/hdmi-shield/hdmi-shield.pdf) and it had 18/20 pins connected. The DDC SCL/SDA lines are for optional higher level control and hot plug detection is not required. I connected the shield pins to ground and the 5V pin to 5V on my FPGA board, hence all the random bits of wire in the picture of my soldered HDMI board from earlier.
 
 
 ### Signal level
 
-I don't have an oscilloscope to check the output signal, so pretty much anything could've be wrong with it.
+I didn't have an oscilloscope to check the actual signal so pretty much anything could've be wrong with it.
 
-I completely misunderstood differential signals in my first implementation and was just outputting the negation of the TMDS signals on the negative lanes. Instead, I needed to assign the TMDS IO standard to the output lanes and use a true differential buffer on the signal.
+Differential signals flew over my head in the first implementation where negative channels were just assigned the TMDS signals negated. Instead, I needed to assign the TMDS IO standard to the output channels and use a true differential buffer on the signal.
 
-The MAX 10 FPGA I have only supports TMDS as an IO input mode, so it can't even send HDMI compliant signals. This was pretty discouranging but I was already pretty invested in this project. A couple hours of searching through forums led me to [Mike Field's DVI test](http://hamsterworks.co.nz/mediawiki/index.php/Dvid_test) which notes that **specifying the LVDS IO standard instead will still work for some lower resolutions**. MAX 10 supports LVDS output so I set the pin assignments to it.
+The MAX 10 FPGA only supports TMDS as an IO input standard so it can't even send HDMI compliant signals. This was pretty discouranging but I was already pretty invested in this project. A couple hours searching through forums led me to [Mike Field's DVI test](http://hamsterworks.co.nz/mediawiki/index.php/Dvid_test) which notes that **specifying the LVDS IO standard instead will still work for some lower resolutions**. MAX 10 luckily supports LVDS output.
 
-I couldn't find any good documentation on why TMDS and LVDS might work together here. TMDS is current-mode logic and LVDS is something else. I imagine that there's some magical range of overlap between the two at low speeds. 
+I couldn't find any good documentation on why TMDS and LVDS might be compatible. TMDS is current-mode logic and LVDS is something else. I've come to accept that there's some magical range of overlap between the two at low speeds. 
 
-A few places discuss converting between the two. I'm going to stick with 640x480 for now so I leave further investigation up to you and/or my future self: https://m.eet.com/media/1135468/330072.pdf, https://www.ti.com/lit/an/scaa059c/scaa059c.pdf, https://www.silabs.com/documents/public/application-notes/AN408.pdf, https://github.com/mattvenn/kicad/tree/master/dvi-pmod, https://electronics.stackexchange.com/questions/130942/transmitting-hdmi-dvi-over-an-fpga-with-no-support-for-tmds, https://hackaday.io/page/5702-dvi-hdmi-pmod-for-an-ice40-fpga.
+A few places discuss converting between the two. I leave further investigation up to you and/or my future self: https://m.eet.com/media/1135468/330072.pdf, https://www.ti.com/lit/an/scaa059c/scaa059c.pdf, https://www.silabs.com/documents/public/application-notes/AN408.pdf, https://github.com/mattvenn/kicad/tree/master/dvi-pmod, https://electronics.stackexchange.com/questions/130942/transmitting-hdmi-dvi-over-an-fpga-with-no-support-for-tmds, https://hackaday.io/page/5702-dvi-hdmi-pmod-for-an-ice40-fpga.
 
 ## Success!
 
-After all this troubleshooting, I finally got something to display:
+After all this troubleshooting, something finally popped up:
 
 ![FPGA displaying picture on TV](/files/display_image.jpg)
 
@@ -108,12 +116,12 @@ After all this troubleshooting, I finally got something to display:
 
 ### Overscan
 
-Many TVs have a feature called overscan that crops the image and stretches it to fit the screen. 
+Overscan is a feature that crops the image and stretches it to fit the screen.
 
-The red border on my monitor below is cut off on some TVs:
+The red border on my monitor below is cut off on my TV:
 ![Overscan area highlighted in red](/files/display_overscan.jpg)
 
-Historically, this was because old CRT TVs had unreliable image scaling and positioning, so TV stations designated a safe display area. Modern TVs don't need this compensation anymore but still enable it by default since some TV stations send junk data in these regions. Unfortunately, Samsung has dropped the ball on this: **their TV firmware does not allow customers to disable overscan on 4:3 resolutions**.
+Old CRT TVs had unreliable image scaling and positioning so TV stations designated a safe display area. Some took advantage of this and started sending other data in these regions. Even though modern TVs don't need this compensation, they keep it enabled by default so that it doesn't display. Samsung TVs only let you disable it on 16:9 resolutions unfortunately.
 
 ## Future work
 
@@ -132,10 +140,10 @@ There are also some cool projects that directly produce audio signals over an au
 
 ### User input
 
-The easiest interface to connect seems to be PS/2 but I don't have a PS/2 keyboard on hand. Interestingly, some older USB keyboards unofficially support fallback to PS/2 over USB. I can solder a female USB port using the [USB to PS/2 adapter pinout on pinouts.ru](https://pinouts.ru/InputCables/usb_ps2_mouse_pinout.shtml) and try out a few USB keyboards.
+The easiest interface to connect seems to be PS/2 but a PS/2 keyboard is hard to come by. Some older USB keyboards unofficially support fallback to PS/2 over USB. This can be used by treating a USB port as a PS/2 port using the [USB to PS/2 adapter pinout on pinouts.ru](https://pinouts.ru/InputCables/usb_ps2_mouse_pinout.shtml).
 
-I was also browsing Adafruit for other components to get and bought a nifty NXP-9 breakout board. It combines an accelerometer, magnetometer, and gyroscope into one package and I'm thinking I could build a cool gesture-based interface with it.
+I was also browsing Adafruit for other components to get and bought a nifty NXP-9 breakout board. It combines an accelerometer, magnetometer, and gyroscope into one package and could be used to build gesture-based user input.
 
 ### Soft CPU
 
-Rust has basic support for some Risc-V ISA extensions (I, M, C). I don't have any experience with this but I started reading the ISA specification and it's looking a bit daunting.
+Rust has basic support for some Risc-V ISA extensions (I, M, C). The ISA looks a bit daunting so it is on the back burner for now.
