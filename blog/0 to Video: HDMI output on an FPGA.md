@@ -62,7 +62,7 @@ HDMI has three channels for sending data. For 24-bit RGB video, each sends 8 bit
 
 #### Phase-locked loop (PLL)
 
-I discovored [PLLs](https://en.wikipedia.org/wiki/Phase-locked_loop) by chance while perusing my board's user manual. At a high level, they can multiply or divide input clocks by an integer. Altera has a PLL [IP block](https://en.wikipedia.org/wiki/Semiconductor_intellectual_property_core) which I used to create 25MHz and 250MHz clocks:
+I discovered [PLLs](https://en.wikipedia.org/wiki/Phase-locked_loop) by chance while perusing my board's user manual. At a high level, they can multiply or divide input clocks by an integer. Altera has a PLL [IP block](https://en.wikipedia.org/wiki/Semiconductor_intellectual_property_core) which I used to create 25MHz and 250MHz clocks:
 
 ![Diagram of the PLL in Quartus](/files/pll.png)
 
@@ -100,7 +100,7 @@ I didn't have an oscilloscope to check the actual signal so pretty much anything
 
 Differential signals flew over my head in the first implementation where negative channels were just assigned the TMDS signals negated. Instead, I needed to assign the TMDS IO standard to the output channels and use a true differential buffer on the signal.
 
-The MAX 10 FPGA only supports TMDS as an IO input standard so it can't even send HDMI compliant signals. This was pretty discouranging but I was already pretty invested in this project. A couple hours searching through forums led me to [Mike Field's DVI test](http://hamsterworks.co.nz/mediawiki/index.php/Dvid_test) which notes that **specifying the LVDS IO standard instead will still work for some lower resolutions**. MAX 10 luckily supports LVDS output.
+The MAX 10 FPGA only supports TMDS as an IO input standard so it can't even send HDMI compliant signals. This was pretty discouraging but I was already pretty invested in this project. A couple hours searching through forums led me to [Mike Field's DVI test](http://hamsterworks.co.nz/mediawiki/index.php/Dvid_test) which notes that **specifying the LVDS IO standard instead will still work for some lower resolutions**. MAX 10 luckily supports LVDS output.
 
 I couldn't find any good documentation on why TMDS and LVDS might be compatible. TMDS is current-mode logic and LVDS is something else. I've come to accept that there's some magical range of overlap between the two at low speeds. 
 
